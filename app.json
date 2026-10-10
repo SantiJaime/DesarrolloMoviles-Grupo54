@@ -38,6 +38,14 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      "expo-secure-store",
+      "expo-sqlite",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permitir el uso de Face ID para ingresar rápidamente a tu cuenta."
+        }
       ]
     ],
     "experiments": {

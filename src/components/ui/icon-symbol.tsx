@@ -18,6 +18,9 @@ const MAPPING = {
   'paperplane.fill': 'send',
   'chevron.left.forwardslash.chevron.right': 'code',
   'chevron.right': 'chevron-right',
+  'map.fill': 'map',
+  'qrcode.viewfinder': 'qr-code-scanner',
+  'person.fill': 'person',
 } as IconMapping;
 
 /**
