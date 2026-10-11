@@ -1,15 +1,15 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-    KeyboardAvoidingView,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    View,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -86,18 +86,13 @@ export default function LoginScreen() {
         >
           <View style={styles.header}>
             <View style={[styles.logo, { backgroundColor: colors.tint }]}>
-              <MaterialIcons
-                name="storefront"
-                size={44}
-                color={colors.onTint}
-              />
+              <Ionicons name="storefront" size={44} color={colors.onTint} />
             </View>
             <ThemedText type="title" style={styles.center}>
               Directorio Concepción
             </ThemedText>
             <ThemedText style={[styles.center, { color: colors.muted }]}>
-              Comercios, promociones y beneficios del Centro Comercial de
-              Concepción del Uruguay.
+              Centro Comercial, Industrial y de Servicios de Concepción del Uruguay
             </ThemedText>
           </View>
 
@@ -109,7 +104,7 @@ export default function LoginScreen() {
               ]}
             >
               <ThemedText type="defaultSemiBold">
-                Hola de nuevo, {rememberedUser.nombreCompleto}
+                Hola de nuevo, {rememberedUser.nombre}
               </ThemedText>
               <Button
                 title={`Ingresar con ${biometric.label}`}
@@ -135,7 +130,7 @@ export default function LoginScreen() {
               }) => (
                 <TextField
                   label="Email"
-                  placeholder="tu@email.com"
+                  placeholder="marta@mail.com"
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
@@ -193,11 +188,25 @@ export default function LoginScreen() {
                 </Pressable>
               </Link>
             </View>
+
+            <Pressable onPress={() => router.replace("/")} hitSlop={8}>
+              <ThemedText type="link" style={styles.center}>
+                Continuar explorando como invitado
+              </ThemedText>
+            </Pressable>
           </View>
 
-          <ThemedText style={[styles.hint, { color: colors.muted }]}>
-            Modo demo: demo@cccu.com.ar / demo1234
-          </ThemedText>
+          <View style={[styles.demoBox, { borderColor: colors.border }]}>
+            <ThemedText style={[styles.hint, { color: colors.muted }]}>
+              Cuentas demo de prueba:
+            </ThemedText>
+            <ThemedText style={[styles.hint, { color: colors.muted }]}>
+              Vecino: marta@mail.com / demo1234
+            </ThemedText>
+            <ThemedText style={[styles.hint, { color: colors.muted }]}>
+              Comercio: comercio@mail.com / demo1234
+            </ThemedText>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -212,15 +221,15 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
-    gap: 24,
+    gap: 20,
   },
   header: {
     alignItems: "center",
-    gap: 12,
+    gap: 8,
   },
   logo: {
-    width: 80,
-    height: 80,
+    width: 76,
+    height: 76,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
@@ -235,7 +244,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   form: {
-    gap: 16,
+    gap: 14,
   },
   row: {
     flexDirection: "row",
@@ -243,8 +252,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
+  demoBox: {
+    borderTopWidth: 1,
+    paddingTop: 12,
+    gap: 4,
+  },
   hint: {
     textAlign: "center",
-    fontSize: 13,
+    fontSize: 12,
   },
 });

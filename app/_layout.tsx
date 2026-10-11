@@ -1,7 +1,7 @@
 import {
-    DarkTheme,
-    DefaultTheme,
-    ThemeProvider as NavigationThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider as NavigationThemeProvider,
 } from "@react-navigation/native";
 import { SplashScreen, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -10,10 +10,17 @@ import "react-native-reanimated";
 
 import { AuthProvider, useAuth } from "@/src/context/auth-context";
 import { ThemeProvider, useTheme } from "@/src/context/theme-context";
+import { getDatabase } from "@/src/lib/db";
+import { configurarNotificaciones } from "@/src/lib/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  useEffect(() => {
+    getDatabase().catch(() => {});
+    configurarNotificaciones().catch(() => {});
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>

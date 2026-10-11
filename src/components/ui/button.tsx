@@ -1,28 +1,31 @@
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import type { ComponentProps } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-    type PressableProps,
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type PressableProps,
 } from "react-native";
 
 import { useThemeColors } from "@/src/hooks/use-theme-color";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonSize = "normal" | "small";
 
 export type ButtonProps = Omit<PressableProps, "children"> & {
   title: string;
   variant?: Variant;
+  size?: ButtonSize;
   loading?: boolean;
-  icon?: ComponentProps<typeof MaterialIcons>["name"];
+  icon?: any;
 };
 
 export function Button({
   title,
   variant = "primary",
+  size = "normal",
   loading,
   icon,
   disabled,
@@ -45,12 +48,15 @@ export function Button({
     danger: "#fff",
   }[variant];
 
+  const isSmall = size === "small";
+
   return (
     <Pressable
       accessibilityRole="button"
       disabled={isDisabled}
       style={(state) => [
         styles.base,
+        isSmall && styles.baseSmall,
         {
           backgroundColor: background,
           opacity: isDisabled ? 0.6 : state.pressed ? 0.85 : 1,
@@ -64,11 +70,19 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={foreground} />
+        <ActivityIndicator color={foreground} size={isSmall ? "small" : undefined} />
       ) : (
         <View style={styles.content}>
-          {icon && <MaterialIcons name={icon} size={20} color={foreground} />}
-          <Text style={[styles.label, { color: foreground }]}>{title}</Text>
+          {icon && <MaterialIcons name={icon} size={isSmall ? 16 : 20} color={foreground} />}
+          <Text
+            style={[
+              styles.label,
+              isSmall && styles.labelSmall,
+              { color: foreground },
+            ]}
+          >
+            {title}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -77,19 +91,28 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 48,
+    minHeight: 46,
     borderRadius: 10,
     paddingHorizontal: 16,
     alignItems: "center",
     justifyContent: "center",
   },
+  baseSmall: {
+    minHeight: 34,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
   content: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   label: {
-    fontSize: 16,
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  labelSmall: {
+    fontSize: 13,
     fontWeight: "600",
   },
 });

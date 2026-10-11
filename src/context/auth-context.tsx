@@ -1,18 +1,18 @@
-import { createContext, use, useEffect, useState, type PropsWithChildren } from 'react';
-
-import { authenticateWithBiometrics, getBiometricSupport, type BiometricSupport } from '@/src/lib/biometrics';
-import { confirmAsync } from '@/src/lib/confirm';
+import { createContext, use, useEffect, useState, type PropsWithChildren } from "react";
+import { authenticateWithBiometrics, getBiometricSupport, type BiometricSupport } from "@/src/lib/biometrics";
+import { confirmAsync } from "@/src/lib/confirm";
 import {
   clearSession,
   getBiometricUserId,
   getStoredSession,
   saveSession,
   setBiometricUserId,
-} from '@/src/lib/secure-session';
-import { authService, type AuthResult, type RegisterInput } from '@/src/services/auth.service';
-import type { Usuario } from '@/src/types/models';
+} from "@/src/lib/secure-session";
+import { authService, type AuthResult, type RegisterInput } from "@/src/services/auth.service";
+import type { Usuario } from "@/src/tipos";
+import { vibrarFavorito } from "@/src/lib/haptics";
 
-type AuthStatus = 'loading' | 'signedOut' | 'signedIn';
+type AuthStatus = "loading" | "signedOut" | "signedIn";
 
 interface AuthContextValue {
   status: AuthStatus;
@@ -27,15 +27,19 @@ interface AuthContextValue {
   signOut: () => Promise<void>;
   forgetDevice: () => Promise<void>;
   setBiometricEnabled: (enabled: boolean) => Promise<boolean>;
+  toggleFavorito: (comercioId: string) => Promise<void>;
+  esFavorito: (comercioId: string) => boolean;
+  setRubrosDeInteres: (rubros: string[]) => Promise<void>;
+  setAvisosActivos: (activos: boolean) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [status, setStatus] = useState<AuthStatus>("loading");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [biometric, setBiometric] = useState<BiometricSupport>({ available: false, label: 'biometría' });
+  const [biometric, setBiometric] = useState<BiometricSupport>({ available: false, label: "biometría" });
   const [biometricUserId, setBiometricUserIdState] = useState<string | null>(null);
   const [rememberedUser, setRememberedUser] = useState<Usuario | null>(null);
 
@@ -50,20 +54,20 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setBiometric(support);
 
         if (!stored) {
-          setStatus('signedOut');
+          setStatus("signedOut");
           return;
         }
 
         if (bioUserId === stored.usuario.id && support.available) {
           setBiometricUserIdState(bioUserId);
           setRememberedUser(stored.usuario);
-          setStatus('signedOut');
+          setStatus("signedOut");
           return;
         }
 
         await openSession(stored.token);
       } catch {
-        setStatus('signedOut');
+        setStatus("signedOut");
       }
     })();
   }, []);
@@ -77,16 +81,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
       await clearSession();
       setBiometricUserIdState(null);
       setRememberedUser(null);
-      setStatus('signedOut');
+      setStatus("signedOut");
       throw e;
     }
     setToken(sessionToken);
     setUsuario(current);
-    setStatus('signedIn');
+    setStatus("signedIn");
   }
 
   async function enableBiometrics(sessionToken: string, user: Usuario): Promise<boolean> {
-    const verified = await authenticateWithBiometrics('Confirmá tu identidad para activar el ingreso rápido');
+    const verified = await authenticateWithBiometrics("Confirmá tu identidad para activar el ingreso rápido");
     if (!verified) return false;
     await setBiometricUserId(user.id);
     setBiometricUserIdState(user.id);
@@ -107,10 +111,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     let biometriaHabilitada = bioUserId === user.id;
     if (!biometriaHabilitada && biometric.available) {
       const wants = await confirmAsync(
-        'Ingreso rápido',
+        "Ingreso rápido",
         `¿Querés usar tu ${biometric.label} para ingresar la próxima vez?`,
-        'Activar',
-        'Ahora no',
+        "Activar",
+        "Ahora no"
       );
       if (wants) biometriaHabilitada = await enableBiometrics(newToken, user);
     }
@@ -120,7 +124,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setRememberedUser(biometriaHabilitada ? finalUser : null);
     setToken(newToken);
     setUsuario(finalUser);
-    setStatus('signedIn');
+    setStatus("signedIn");
   }
 
   async function signIn(email: string, password: string) {
@@ -138,7 +142,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       setRememberedUser(null);
       return false;
     }
-    const verified = await authenticateWithBiometrics(`Ingresar como ${stored.usuario.nombreCompleto}`);
+    const verified = await authenticateWithBiometrics(`Ingresar como ${stored.usuario.nombre}`);
     if (!verified) return false;
     await openSession(stored.token);
     return true;
@@ -153,7 +157,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     }
     setToken(null);
     setUsuario(null);
-    setStatus('signedOut');
+    setStatus("signedOut");
   }
 
   async function forgetDevice() {
@@ -182,6 +186,40 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return result;
   }
 
+  async function toggleFavorito(comercioId: string) {
+    if (!usuario || !token) return;
+    const existe = usuario.favoritos.includes(comercioId);
+    const nuevos = existe
+      ? usuario.favoritos.filter((id) => id !== comercioId)
+      : [...usuario.favoritos, comercioId];
+
+    await vibrarFavorito();
+    const updated = { ...usuario, favoritos: nuevos };
+    setUsuario(updated);
+    await saveSession(token, updated);
+    authService.updateMe(token, { favoritos: nuevos }).catch(() => {});
+  }
+
+  function esFavorito(comercioId: string): boolean {
+    return Boolean(usuario?.favoritos?.includes(comercioId));
+  }
+
+  async function setRubrosDeInteres(rubros: string[]) {
+    if (!usuario || !token) return;
+    const updated = { ...usuario, rubrosDeInteres: rubros };
+    setUsuario(updated);
+    await saveSession(token, updated);
+    authService.updateMe(token, { rubrosDeInteres: rubros }).catch(() => {});
+  }
+
+  async function setAvisosActivos(activos: boolean) {
+    if (!usuario || !token) return;
+    const updated = { ...usuario, avisosActivos: activos };
+    setUsuario(updated);
+    await saveSession(token, updated);
+    authService.updateMe(token, { avisosActivos: activos }).catch(() => {});
+  }
+
   const value: AuthContextValue = {
     status,
     usuario,
@@ -195,6 +233,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     signOut,
     forgetDevice,
     setBiometricEnabled,
+    toggleFavorito,
+    esFavorito,
+    setRubrosDeInteres,
+    setAvisosActivos,
   };
 
   return <AuthContext value={value}>{children}</AuthContext>;
@@ -202,6 +244,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
 export function useAuth(): AuthContextValue {
   const ctx = use(AuthContext);
-  if (!ctx) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
+  if (!ctx) throw new Error("useAuth debe usarse dentro de <AuthProvider>");
   return ctx;
 }
