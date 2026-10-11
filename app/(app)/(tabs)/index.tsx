@@ -1,75 +1,325 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Image } from 'expo-image';
-import { Link } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { FlatList, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Image } from "expo-image";
+import { Link } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  TextInput,
+  View,
+} from "react-native";
 
-import { StateView } from '@/src/components/state-view';
-import { ThemedText } from '@/src/components/themed-text';
-import { ThemedView } from '@/src/components/themed-view';
-import { useThemeColors } from '@/src/hooks/use-theme-color';
-import { comerciosService } from '@/src/services/comercios.service';
-import type { Comercio } from '@/src/types/models';
+import { StateView } from "@/src/components/state-view";
+import { ThemedText } from "@/src/components/themed-text";
+import { ThemedView } from "@/src/components/themed-view";
+import { useThemeColors } from "@/src/hooks/use-theme-color";
+import {
+  calcularDistanciaMetros,
+  formatearDistancia,
+  pedirPermisoYUbicacion,
+} from "@/src/lib/location";
+import { obtenerEstadoHorario } from "@/src/lib/horarios";
+import { useNetworkStatus } from "@/src/lib/network";
+import { comerciosService } from "@/src/servicios/comercios";
+import type { Comercio, Coordenadas, Promocion, Rubro } from "@/src/tipos";
 
 export default function HomeScreen() {
   const colors = useThemeColors();
-  const [comercios, setComercios] = useState<Comercio[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const { isOnline } = useNetworkStatus();
 
-  async function load() {
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [rubros, setRubros] = useState<Rubro[]>([]);
+  const [promos, setPromos] = useState<Promocion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [query, setQuery] = useState("");
+  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
+  const [soloAbiertos, setSoloAbiertos] = useState(false);
+  const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(null);
+
+  const cargarDatos = useCallback(async () => {
     setError(null);
-    setComercios(null);
     try {
-      setComercios(await comerciosService.list());
+      const [resRubros, resComercios, resPromos] = await Promise.all([
+        comerciosService.obtenerRubros(),
+        comerciosService.obtenerComercios(),
+        comerciosService.obtenerPromociones(),
+      ]);
+      setRubros(resRubros.datos);
+      setComercios(resComercios.datos);
+      setPromos(resPromos.datos);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
-  }
-
-  useEffect(() => {
-    load();
   }, []);
 
-  if (error) {
-    return <StateView type="error" title="No se pudo cargar el directorio" message={error} actionLabel="Reintentar" onAction={load} />;
-  }
-  if (!comercios) {
+  useEffect(() => {
+    cargarDatos();
+    pedirPermisoYUbicacion().then((coords) => {
+      if (coords) setUbicacionUsuario(coords);
+    });
+  }, [cargarDatos]);
+
+  if (loading) {
     return <StateView type="loading" message="Cargando comercios..." />;
   }
 
-  const normalized = query.trim().toLowerCase();
-  const filtered = normalized
-    ? comercios.filter(
-        (c) => c.nombre.toLowerCase().includes(normalized) || c.rubro?.nombre.toLowerCase().includes(normalized),
-      )
-    : comercios;
+  if (error) {
+    return (
+      <StateView
+        type="error"
+        title="No pudimos cargar los comercios"
+        message={error}
+        actionLabel="Reintentar"
+        onAction={cargarDatos}
+      />
+    );
+  }
+
+  const normalizado = query.trim().toLowerCase();
+  let filtrados = comercios.filter((c) => {
+    if (rubroSeleccionado && c.rubroId !== rubroSeleccionado) {
+      return false;
+    }
+    if (normalizado) {
+      const coincideNombre = c.nombre.toLowerCase().includes(normalizado);
+      const coincideDesc = c.descripcion.toLowerCase().includes(normalizado);
+      if (!coincideNombre && !coincideDesc) return false;
+    }
+    if (soloAbiertos) {
+      const { abierto } = obtenerEstadoHorario(c.horarios, c.activo);
+      if (!abierto) return false;
+    }
+    return true;
+  });
+
+  if (ubicacionUsuario) {
+    filtrados = [...filtrados].sort((a, b) => {
+      const distA = calcularDistanciaMetros(ubicacionUsuario, a.coordenadas);
+      const distB = calcularDistanciaMetros(ubicacionUsuario, b.coordenadas);
+      return distA - distB;
+    });
+  }
 
   return (
     <ThemedView style={styles.flex}>
-      <View style={[styles.search, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <MaterialIcons name="search" size={22} color={colors.muted} />
+      {!isOnline && (
+        <View style={[styles.offlineBanner, { backgroundColor: "#FF9800" }]}>
+          <Ionicons name="cloud-offline" size={16} color="#fff" />
+          <ThemedText style={styles.offlineText}>
+            Sin conexión. Mostrando datos guardados en el teléfono.
+          </ThemedText>
+        </View>
+      )}
+
+      <View
+        style={[
+          styles.searchBox,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
+        <Ionicons name="search" size={20} color={colors.muted} />
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar comercio o rubro"
+          placeholder="Buscar por nombre o lo que venden..."
           placeholderTextColor={colors.muted}
           style={[styles.searchInput, { color: colors.text }]}
         />
+        {query.length > 0 && (
+          <Pressable onPress={() => setQuery("")}>
+            <Ionicons name="close-circle" size={18} color={colors.muted} />
+          </Pressable>
+        )}
+      </View>
+
+      <View style={styles.filterBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rubrosList}
+        >
+          <Pressable
+            onPress={() => setRubroSeleccionado(null)}
+            style={[
+              styles.chip,
+              {
+                backgroundColor:
+                  rubroSeleccionado === null ? colors.tint : colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <ThemedText
+              style={[
+                styles.chipText,
+                {
+                  color:
+                    rubroSeleccionado === null ? colors.onTint : colors.text,
+                },
+              ]}
+            >
+              Todos
+            </ThemedText>
+          </Pressable>
+          {rubros.map((r) => {
+            const activo = rubroSeleccionado === r.id;
+            return (
+              <Pressable
+                key={r.id}
+                onPress={() => setRubroSeleccionado(activo ? null : r.id)}
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: activo ? colors.tint : colors.card,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <ThemedText
+                  style={[
+                    styles.chipText,
+                    { color: activo ? colors.onTint : colors.text },
+                  ]}
+                >
+                  {r.nombre}
+                </ThemedText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      <View
+        style={[
+          styles.optionsRow,
+          { borderColor: colors.border, backgroundColor: colors.card },
+        ]}
+      >
+        <View style={styles.switchContainer}>
+          <Switch
+            value={soloAbiertos}
+            onValueChange={setSoloAbiertos}
+            trackColor={{ true: colors.tint }}
+          />
+          <ThemedText style={styles.optionLabel}>Abierto ahora</ThemedText>
+        </View>
+        {ubicacionUsuario && (
+          <ThemedText style={[styles.optionLabel, { color: colors.muted }]}>
+            Ordenado por cercanía
+          </ThemedText>
+        )}
       </View>
 
       <FlatList
-        data={filtered}
+        data={filtrados}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
-        renderItem={({ item }) => <ComercioCard comercio={item} />}
+        renderItem={({ item }) => {
+          const rubro = rubros.find((r) => r.id === item.rubroId);
+          const estado = obtenerEstadoHorario(item.horarios, item.activo);
+          const distancia = ubicacionUsuario
+            ? formatearDistancia(
+                calcularDistanciaMetros(ubicacionUsuario, item.coordenadas)
+              )
+            : null;
+          const promo = promos.find((p) => p.comercioId === item.id);
+
+          return (
+            <Link
+              href={{ pathname: "/comercio/[id]", params: { id: item.id } }}
+              asChild
+            >
+              <Pressable
+                style={[
+                  styles.card,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                {item.imagenes && item.imagenes.length > 0 ? (
+                  <Image
+                    source={item.imagenes[0]}
+                    style={styles.cardImage}
+                    contentFit="cover"
+                    transition={200}
+                  />
+                ) : (
+                  <View
+                    style={[
+                      styles.cardImagePlaceholder,
+                      { backgroundColor: colors.border },
+                    ]}
+                  >
+                    <Ionicons name="storefront" size={40} color={colors.muted} />
+                  </View>
+                )}
+
+                <View style={styles.cardBody}>
+                  <View style={styles.rowBetween}>
+                    <ThemedText type="defaultSemiBold" style={styles.flex}>
+                      {item.nombre}
+                    </ThemedText>
+                    {distancia && (
+                      <ThemedText style={[styles.distancia, { color: colors.tint }]}>
+                        {distancia}
+                      </ThemedText>
+                    )}
+                  </View>
+
+                  <View style={styles.row}>
+                    <ThemedText style={{ color: colors.muted, fontSize: 13 }}>
+                      {rubro?.nombre ?? "Comercio"} •{" "}
+                    </ThemedText>
+                    <ThemedText
+                      style={{
+                        fontSize: 13,
+                        fontWeight: "600",
+                        color: estado.abierto ? "#2e7d32" : "#c62828",
+                      }}
+                    >
+                      {estado.texto}
+                    </ThemedText>
+                  </View>
+
+                  <View style={styles.row}>
+                    <Ionicons name="star" size={15} color="#f5a623" />
+                    <ThemedText style={styles.ratingText}>
+                      {item.puntaje > 0
+                        ? `${item.puntaje.toFixed(1)} (${item.cantidadResenas})`
+                        : "Sin reseñas"}
+                    </ThemedText>
+                  </View>
+
+                  {promo && (
+                    <View style={styles.promoBadge}>
+                      <Ionicons name="pricetag" size={13} color="#d32f2f" />
+                      <ThemedText style={styles.promoText} numberOfLines={1}>
+                        PROMO: {promo.titulo}
+                      </ThemedText>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            </Link>
+          );
+        }}
         ListEmptyComponent={
           <StateView
             type="empty"
             title="Sin resultados"
-            message={`No encontramos comercios para "${query}".`}
-            actionLabel="Limpiar búsqueda"
-            onAction={() => setQuery('')}
+            message={`No encontramos comercios que coincidan con la búsqueda.`}
+            actionLabel="Limpiar filtros"
+            onAction={() => {
+              setQuery("");
+              setRubroSeleccionado(null);
+              setSoloAbiertos(false);
+            }}
           />
         }
       />
@@ -77,72 +327,128 @@ export default function HomeScreen() {
   );
 }
 
-function ComercioCard({ comercio }: { comercio: Comercio }) {
-  const colors = useThemeColors();
-
-  return (
-    <Link href={{ pathname: '/comercio/[id]', params: { id: comercio.id } }} asChild>
-      <Pressable style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Image source={comercio.imagenUrl} style={styles.image} contentFit="cover" transition={200} />
-        <View style={styles.cardBody}>
-          <View style={styles.cardTitleRow}>
-            <ThemedText type="defaultSemiBold" style={styles.flex} numberOfLines={1}>
-              {comercio.nombre}
-            </ThemedText>
-            <MaterialIcons name="star" size={18} color="#f5a623" />
-            <ThemedText>
-              {comercio.valoracionPromedio.toFixed(1)} ({comercio.totalResenas})
-            </ThemedText>
-          </View>
-          <ThemedText style={{ color: colors.muted }}>
-            {comercio.rubro?.nombre ?? 'Sin rubro'} • {comercio.horario}
-          </ThemedText>
-        </View>
-      </Pressable>
-    </Link>
-  );
-}
-
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
-  search: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  offlineBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
-    margin: 16,
-    marginBottom: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  offlineText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  searchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
     borderRadius: 10,
+    minHeight: 44,
   },
   searchInput: {
     flex: 1,
-    minHeight: 44,
-    fontSize: 16,
+    fontSize: 15,
+  },
+  filterBar: {
+    marginVertical: 10,
+  },
+  rubrosList: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  optionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+  },
+  switchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  optionLabel: {
+    fontSize: 13,
+    fontWeight: "500",
   },
   list: {
-    flexGrow: 1,
     padding: 16,
-    gap: 16,
+    gap: 14,
   },
   card: {
     borderWidth: 1,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
-  image: {
-    width: '100%',
-    height: 150,
+  cardImage: {
+    width: "100%",
+    height: 140,
+  },
+  cardImagePlaceholder: {
+    width: "100%",
+    height: 120,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardBody: {
     padding: 12,
     gap: 4,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  rowBetween: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
+  },
+  distancia: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  promoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#ffebee",
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    marginTop: 4,
+    alignSelf: "flex-start",
+  },
+  promoText: {
+    color: "#d32f2f",
+    fontSize: 12,
+    fontWeight: "600",
   },
 });

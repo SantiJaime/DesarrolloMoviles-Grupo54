@@ -1,120 +1,17 @@
-import type { Comercio, Promocion, Rubro } from "@/src/types/models";
+export * from "@/src/mocks";
 
-export const RUBROS: Rubro[] = [
-  { id: "rub-01", nombre: "Gastronomía", icono: "restaurant" },
-  { id: "rub-02", nombre: "Indumentaria", icono: "checkroom" },
-  { id: "rub-03", nombre: "Farmacia", icono: "local-pharmacy" },
-  { id: "rub-04", nombre: "Librería", icono: "menu-book" },
-  { id: "rub-05", nombre: "Heladería", icono: "icecream" },
-];
+import {
+  MOCK_COMERCIOS,
+  MOCK_PROMOCIONES,
+  MOCK_RESENAS,
+  MOCK_RUBROS,
+  MOCK_USUARIOS,
+  MOCK_USOS,
+} from "@/src/mocks";
 
-export const COMERCIOS: Comercio[] = [
-  {
-    id: "com-101",
-    nombre: "La Casona Restaurante",
-    rubroId: "rub-01",
-    descripcion:
-      "Especialidades en carnes a la parrilla y cocina tradicional entrerriana.",
-    direccion: "San Martín 450, Concepción del Uruguay",
-    coordenadas: { latitude: -32.4845, longitude: -58.2321 },
-    telefono: "+543442420000",
-    horario: "11:30 - 15:00, 20:00 - 00:00",
-    imagenUrl: "https://picsum.photos/seed/casona/600/400",
-    videoUrl: "https://media.local/casona_promo.mp4",
-    valoracionPromedio: 4.8,
-    totalResenas: 120,
-  },
-  {
-    id: "com-102",
-    nombre: "Boutique San Martín",
-    rubroId: "rub-02",
-    descripcion: "Moda femenina y masculina con marcas nacionales.",
-    direccion: "San Martín 820, Concepción del Uruguay",
-    coordenadas: { latitude: -32.4831, longitude: -58.2365 },
-    telefono: "+543442431111",
-    horario: "09:00 - 13:00, 17:00 - 20:00",
-    imagenUrl: "https://picsum.photos/seed/boutique/600/400",
-    valoracionPromedio: 4.2,
-    totalResenas: 45,
-  },
-  {
-    id: "com-103",
-    nombre: "Farmacia Central",
-    rubroId: "rub-03",
-    descripcion: "Farmacia, perfumería y atención de obras sociales.",
-    direccion: "Rocamora 702, Concepción del Uruguay",
-    coordenadas: { latitude: -32.4862, longitude: -58.2339 },
-    telefono: "+543442422222",
-    horario: "08:00 - 22:00",
-    imagenUrl: "https://picsum.photos/seed/farmacia/600/400",
-    valoracionPromedio: 4.5,
-    totalResenas: 78,
-  },
-  {
-    id: "com-104",
-    nombre: "Librería del Colegio",
-    rubroId: "rub-04",
-    descripcion: "Libros, útiles escolares y artículos de oficina.",
-    direccion: "9 de Julio 150, Concepción del Uruguay",
-    coordenadas: { latitude: -32.4851, longitude: -58.2298 },
-    telefono: "+543442433333",
-    horario: "08:30 - 12:30, 16:30 - 20:30",
-    imagenUrl: "https://picsum.photos/seed/libreria/600/400",
-    valoracionPromedio: 4.0,
-    totalResenas: 22,
-  },
-  {
-    id: "com-105",
-    nombre: "Heladería Costanera",
-    rubroId: "rub-05",
-    descripcion: "Helados artesanales frente al río Uruguay.",
-    direccion: "Av. Costanera 300, Concepción del Uruguay",
-    coordenadas: { latitude: -32.4878, longitude: -58.2262 },
-    telefono: "+543442444444",
-    horario: "14:00 - 01:00",
-    imagenUrl: "https://picsum.photos/seed/heladeria/600/400",
-    valoracionPromedio: 4.7,
-    totalResenas: 210,
-  },
-];
-
-export const PROMOCIONES: Promocion[] = [
-  {
-    id: "pro-01",
-    comercioId: "com-101",
-    titulo: "20% OFF pago en efectivo",
-    descripcion: "Válido de lunes a jueves en el horario de la noche.",
-    descuentoPorcentaje: 20,
-    codigoQR: "CCCU-PRO-01",
-    fechaValidezHasta: "2026-12-31",
-    activa: true,
-  },
-  {
-    id: "pro-02",
-    comercioId: "com-101",
-    titulo: "Postre de regalo",
-    descripcion: "Con cualquier plato principal los fines de semana.",
-    codigoQR: "CCCU-PRO-02",
-    fechaValidezHasta: "2026-11-30",
-    activa: true,
-  },
-  {
-    id: "pro-03",
-    comercioId: "com-102",
-    titulo: "15% OFF en temporada",
-    descripcion: "Sobre prendas de la nueva colección.",
-    descuentoPorcentaje: 15,
-    codigoQR: "CCCU-PRO-03",
-    fechaValidezHasta: "2026-12-15",
-    activa: true,
-  },
-  {
-    id: "pro-04",
-    comercioId: "com-105",
-    titulo: "2x1 en cucuruchos",
-    descripcion: "Todos los martes.",
-    codigoQR: "CCCU-PRO-04",
-    fechaValidezHasta: "2027-03-01",
-    activa: true,
-  },
-];
+export const COMERCIOS = MOCK_COMERCIOS;
+export const PROMOCIONES = MOCK_PROMOCIONES;
+export const RUBROS = MOCK_RUBROS;
+export const RESENAS = MOCK_RESENAS;
+export const USOS = MOCK_USOS;
+export const USUARIOS = MOCK_USUARIOS;
