@@ -1,6 +1,6 @@
+import type { Promocion } from "@/src/tipos";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
-import type { Promocion } from "@/src/tipos";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -45,7 +45,7 @@ export async function notificarPromoNuevaDeFavorito(
       },
       trigger: null,
     });
-  } catch {}
+  } catch { }
 }
 
 export async function programarRecordatorioPromoPorVencer(
@@ -53,28 +53,39 @@ export async function programarRecordatorioPromoPorVencer(
   comercioNombre: string
 ) {
   try {
-    const fechaHasta = new Date(promo.hasta).getTime();
+    const hasta = new Date(promo.hasta).getTime();
     const ahora = Date.now();
-    const diferencia = fechaHasta - ahora;
+    if (hasta <= ahora) return;
 
-    if (diferencia > 0) {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "¡Tu promoción guardada está por vencer!",
-          body: `No te olvides de aprovechar "${promo.titulo}" en ${comercioNombre}.`,
-          data: { promoId: promo.id },
-        },
-        trigger: {
+    const avisarEn = hasta - 24 * 60 * 60 * 1000;
+
+    const trigger: Notifications.NotificationTriggerInput =
+      avisarEn > ahora
+        ? {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: new Date(avisarEn),
+        }
+        : {
           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
           seconds: 10,
-        },
-      });
-    }
-  } catch {}
+        };
+
+    await Notifications.scheduleNotificationAsync({
+      identifier: `promo-vence-${promo.id}`,
+      content: {
+        title: "¡Tu promoción guardada está por vencer!",
+        body: `No te olvides de aprovechar "${promo.titulo}" en ${comercioNombre}.`,
+        data: { promoId: promo.id },
+      },
+      trigger,
+    });
+  } catch (e) {
+    console.log("Error al programar notificación:", e);
+  }
 }
 
 export async function cancelarTodasLasNotificaciones() {
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
-  } catch {}
+  } catch { }
 }

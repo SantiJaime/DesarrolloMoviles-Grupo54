@@ -27,6 +27,7 @@ import {
   obtenerEstadoHorario,
 } from "@/src/lib/horarios";
 import { abrirRutaEnMapas } from "@/src/lib/location";
+import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
 import { comerciosService } from "@/src/servicios/comercios";
 import type { Comercio, Promocion, Resena, UsoDePromocion } from "@/src/tipos";
 
@@ -181,6 +182,9 @@ export default function ComercioDetailScreen() {
     setPromoSeleccionada(promo);
     const uso = await comerciosService.generarCodigoUso(promo.id, usuario.id);
     setUsoGenerado(uso);
+    if (usuario.avisosActivos) {
+      programarRecordatorioPromoPorVencer(promo, comercio?.nombre ?? "el comercio");
+    }
   }
 
   return (
