@@ -108,7 +108,7 @@ export default function LoginScreen() {
               </ThemedText>
               <Button
                 title={`Ingresar con ${biometric.label}`}
-                icon="fingerprint"
+                icon="finger-print"
                 loading={biometricLoading}
                 onPress={handleBiometricLogin}
               />

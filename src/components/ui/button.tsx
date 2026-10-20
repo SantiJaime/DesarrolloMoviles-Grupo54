@@ -1,5 +1,4 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import type { ComponentProps } from "react";
+import { AppIcon, type IconName } from "@/src/components/ui/app-icon";
 import {
   ActivityIndicator,
   Pressable,
@@ -19,7 +18,7 @@ export type ButtonProps = Omit<PressableProps, "children"> & {
   variant?: Variant;
   size?: ButtonSize;
   loading?: boolean;
-  icon?: any;
+  icon?: IconName;
 };
 
 export function Button({
@@ -73,7 +72,7 @@ export function Button({
         <ActivityIndicator color={foreground} size={isSmall ? "small" : undefined} />
       ) : (
         <View style={styles.content}>
-          {icon && <MaterialIcons name={icon} size={isSmall ? 16 : 20} color={foreground} />}
+          {icon && <AppIcon name={icon} size={isSmall ? 16 : 20} color={foreground} />}
           <Text
             style={[
               styles.label,
