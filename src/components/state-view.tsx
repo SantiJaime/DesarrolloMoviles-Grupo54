@@ -4,7 +4,7 @@ import { ActivityIndicator, StyleSheet, View } from "react-native";
 
 import { ThemedText } from "@/src/components/themed-text";
 import { Button } from "@/src/components/ui/button";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 
 type StateViewProps =
   | { type: "loading"; message?: string }
@@ -18,12 +18,12 @@ type StateViewProps =
     };
 
 export function StateView(props: StateViewProps) {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
 
   if (props.type === "loading") {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color={colors.tint} />
+        <ActivityIndicator size="large" color={colors.accent} />
         {props.message ? (
           <ThemedText style={{ color: colors.muted }}>
             {props.message}

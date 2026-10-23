@@ -8,17 +8,15 @@ import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 import { authenticateWithBiometrics } from "@/src/lib/biometrics";
 import { vibrarError, vibrarValidacionExitosa } from "@/src/lib/haptics";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { UsoDePromocion } from "@/src/tipos";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { UsoDePromocion } from "@/src/types";
 
 export default function ScanScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
-  const { usuario } = useAuth();
 
   const [permission, requestPermission] = useCameraPermissions();
   const [autenticadoBio, setAutenticadoBio] = useState(false);
@@ -100,9 +98,9 @@ export default function ScanScreen() {
           <ThemedText style={{ color: colors.muted, textAlign: "center" }}>
             El beneficio fue registrado exitosamente para el cliente.
           </ThemedText>
-          <View style={[styles.detailBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={[styles.detailBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <ThemedText style={{ fontWeight: "bold" }}>Código:</ThemedText>
-            <ThemedText style={{ color: colors.tint }}>{resultado.codigo}</ThemedText>
+            <ThemedText style={{ color: colors.accent }}>{resultado.codigo}</ThemedText>
             <ThemedText style={{ fontWeight: "bold", marginTop: 8 }}>Validado:</ThemedText>
             <ThemedText style={{ color: colors.muted }}>
               {new Date(resultado.validadoEn || "").toLocaleString("es-AR")}

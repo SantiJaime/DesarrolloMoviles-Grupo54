@@ -15,7 +15,7 @@ import {
 import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 import {
   calcularDistanciaMetros,
   formatearDistancia,
@@ -23,11 +23,11 @@ import {
 } from "@/src/lib/location";
 import { obtenerEstadoHorario } from "@/src/lib/horarios";
 import { useNetworkStatus } from "@/src/lib/network";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Comercio, Coordenadas, Promocion, Rubro } from "@/src/tipos";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Comercio, Coordenadas, Promocion, Rubro } from "@/src/types";
 
 export default function HomeScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const { isOnline } = useNetworkStatus();
 
   const [comercios, setComercios] = useState<Comercio[]>([]);
@@ -121,7 +121,7 @@ export default function HomeScreen() {
       <View
         style={[
           styles.searchBox,
-          { backgroundColor: colors.card, borderColor: colors.border },
+          { backgroundColor: colors.surface, borderColor: colors.border },
         ]}
       >
         <Ionicons name="search" size={20} color={colors.muted} />
@@ -151,7 +151,7 @@ export default function HomeScreen() {
               styles.chip,
               {
                 backgroundColor:
-                  rubroSeleccionado === null ? colors.tint : colors.card,
+                  rubroSeleccionado === null ? colors.accent : colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -161,7 +161,7 @@ export default function HomeScreen() {
                 styles.chipText,
                 {
                   color:
-                    rubroSeleccionado === null ? colors.onTint : colors.text,
+                    rubroSeleccionado === null ? colors.onAccent : colors.text,
                 },
               ]}
             >
@@ -177,7 +177,7 @@ export default function HomeScreen() {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: activo ? colors.tint : colors.card,
+                    backgroundColor: activo ? colors.accent : colors.surface,
                     borderColor: colors.border,
                   },
                 ]}
@@ -185,7 +185,7 @@ export default function HomeScreen() {
                 <ThemedText
                   style={[
                     styles.chipText,
-                    { color: activo ? colors.onTint : colors.text },
+                    { color: activo ? colors.onAccent : colors.text },
                   ]}
                 >
                   {r.nombre}
@@ -199,14 +199,14 @@ export default function HomeScreen() {
       <View
         style={[
           styles.optionsRow,
-          { borderColor: colors.border, backgroundColor: colors.card },
+          { borderColor: colors.border, backgroundColor: colors.surface },
         ]}
       >
         <View style={styles.switchContainer}>
           <Switch
             value={soloAbiertos}
             onValueChange={setSoloAbiertos}
-            trackColor={{ true: colors.tint }}
+            trackColor={{ true: colors.accent }}
           />
           <ThemedText style={styles.optionLabel}>Abierto ahora</ThemedText>
         </View>
@@ -239,7 +239,7 @@ export default function HomeScreen() {
               <Pressable
                 style={[
                   styles.card,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
               >
                 {item.imagenes && item.imagenes.length > 0 ? (
@@ -266,7 +266,7 @@ export default function HomeScreen() {
                       {item.nombre}
                     </ThemedText>
                     {distancia && (
-                      <ThemedText style={[styles.distancia, { color: colors.tint }]}>
+                      <ThemedText style={[styles.distancia, { color: colors.accent }]}>
                         {distancia}
                       </ThemedText>
                     )}

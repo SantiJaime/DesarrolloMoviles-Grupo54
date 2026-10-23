@@ -8,7 +8,7 @@ import {
   type PressableProps,
 } from "react-native";
 
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 type ButtonSize = "normal" | "small";
@@ -31,19 +31,19 @@ export function Button({
   style,
   ...rest
 }: ButtonProps) {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const isDisabled = disabled || loading;
 
   const background = {
-    primary: colors.tint,
-    secondary: colors.card,
+    primary: colors.accent,
+    secondary: colors.surface,
     ghost: "transparent",
     danger: colors.danger,
   }[variant];
   const foreground = {
-    primary: colors.onTint,
+    primary: colors.onAccent,
     secondary: colors.text,
-    ghost: colors.tint,
+    ghost: colors.accent,
     danger: "#fff",
   }[variant];
 

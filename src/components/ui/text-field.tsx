@@ -6,7 +6,7 @@ import {
     type TextInputProps,
 } from "react-native";
 
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 
 export type TextFieldProps = TextInputProps & {
   label: string;
@@ -14,7 +14,7 @@ export type TextFieldProps = TextInputProps & {
 };
 
 export function TextField({ label, error, style, ...rest }: TextFieldProps) {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
 
   return (
     <View style={styles.container}>
@@ -25,7 +25,7 @@ export function TextField({ label, error, style, ...rest }: TextFieldProps) {
           styles.input,
           {
             color: colors.text,
-            backgroundColor: colors.card,
+            backgroundColor: colors.surface,
             borderColor: error ? colors.danger : colors.border,
           },
           style,

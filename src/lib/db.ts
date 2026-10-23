@@ -1,7 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import Storage from "expo-sqlite/kv-store";
-import type { Comercio, Rubro } from "@/src/tipos";
-import { MOCK_COMERCIOS, MOCK_RUBROS } from "@/src/mocks";
+import type { Comercio, Rubro } from "@/src/types";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
@@ -44,13 +43,6 @@ async function initDatabase(db: SQLite.SQLiteDatabase) {
       orden INTEGER NOT NULL
     );
   `);
-
-  const countRow = await db.getFirstAsync<{ count: number }>("SELECT count(*) as count FROM comercios;");
-  if (!countRow || countRow.count === 0) {
-    await guardarRubrosEnDB(MOCK_RUBROS);
-    await guardarComerciosEnDB(MOCK_COMERCIOS);
-    await setKV("ultima_sincronizacion", new Date().toISOString());
-  }
 }
 
 export async function guardarComerciosEnDB(comercios: Comercio[]): Promise<void> {

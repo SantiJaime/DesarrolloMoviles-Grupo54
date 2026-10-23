@@ -20,7 +20,7 @@ export default function ScanScreen() {
         <Button
           title="Mi historial"
           variant="secondary"
-          icon="history"
+          icon="time"
           onPress={() => router.push("/scan/historial")}
         />
       </View>

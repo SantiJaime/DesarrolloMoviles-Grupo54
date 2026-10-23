@@ -1,4 +1,4 @@
-import type { Promocion } from "@/src/tipos";
+import type { Promocion } from "@/src/types";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
