@@ -3,12 +3,10 @@ import React from "react";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
 import { HapticTab } from "@/src/components/haptic-tab";
-import { Colors } from "@/src/constants/theme";
-import { useColorScheme } from "@/src/hooks/use-color-scheme";
+import { useTheme } from "@/src/hooks/use-theme";
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-  const activeColor = Colors[colorScheme ?? "light"].tint;
+  const activeColor = useTheme().palette.accent;
 
   return (
     <Tabs

@@ -16,12 +16,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/src/components/themed-text";
 import { Button } from "@/src/components/ui/button";
 import { TextField } from "@/src/components/ui/text-field";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useAuth } from "@/src/hooks/use-auth";
+import { useTheme } from "@/src/hooks/use-theme";
 import { loginSchema, type LoginForm } from "@/src/schemas/auth.schema";
 
 export default function LoginScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const {
     signIn,
     signInWithBiometrics,
@@ -85,8 +85,8 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <View style={styles.header}>
-            <View style={[styles.logo, { backgroundColor: colors.tint }]}>
-              <Ionicons name="storefront" size={44} color={colors.onTint} />
+            <View style={[styles.logo, { backgroundColor: colors.accent }]}>
+              <Ionicons name="storefront" size={44} color={colors.onAccent} />
             </View>
             <ThemedText type="title" style={styles.center}>
               Directorio Concepción
@@ -100,7 +100,7 @@ export default function LoginScreen() {
             <View
               style={[
                 styles.biometricCard,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
               <ThemedText type="defaultSemiBold">

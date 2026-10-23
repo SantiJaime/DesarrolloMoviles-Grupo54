@@ -1,74 +1,33 @@
-import Storage from "expo-sqlite/kv-store";
-import {
-    createContext,
-    use,
-    useEffect,
-    useState,
-    type PropsWithChildren,
-} from "react";
-import {
-    Appearance,
-    useColorScheme as useSystemColorScheme,
-} from "react-native";
+import React, { useState, createContext, useMemo } from "react";
+import { palettes } from "@/src/constants/theme";
+import { Palette } from "../types/colors";
 
-import { Colors } from "@/src/constants/theme";
+export type ColorScheme = "dark" | "light";
 
-export type ThemePreference = "system" | "light" | "dark";
-export type ColorScheme = "light" | "dark";
+type ThemeContextType = {
+  theme: ColorScheme;
+  setTheme: (theme: ColorScheme) => void;
+  palette: Palette;
+};
 
-interface ThemeContextValue {
-  preference: ThemePreference;
-  colorScheme: ColorScheme;
-  colors: (typeof Colors)[ColorScheme];
-  setPreference: (preference: ThemePreference) => void;
-}
+export const ThemeContext = createContext<ThemeContextType | null>(null);
 
-const PREFERENCE_KEY = "theme.preference";
+type ThemeProviderProps = {
+  children: React.ReactNode;
+};
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  const [theme, setTheme] = useState<ColorScheme>("dark");
 
-function readStoredPreference(): ThemePreference {
-  try {
-    const stored = Storage.getItemSync(PREFERENCE_KEY);
-    return stored === "light" || stored === "dark" ? stored : "system";
-  } catch {
-    return "system";
-  }
-}
+  const values = useMemo(() => {
+    return {
+      theme,
+      setTheme,
+      palette: palettes[theme],
+    };
+  }, [theme]);
 
-export function ThemeProvider({ children }: PropsWithChildren) {
-  const [preference, setPreferenceState] =
-    useState<ThemePreference>(readStoredPreference);
-  const systemColorScheme = useSystemColorScheme();
-
-  useEffect(() => {
-    Appearance.setColorScheme(preference === "system" ? null : preference);
-  }, [preference]);
-
-  function setPreference(newPreference: ThemePreference) {
-    setPreferenceState(newPreference);
-    Storage.setItemAsync(PREFERENCE_KEY, newPreference).catch(() => {});
-  }
-
-  const colorScheme: ColorScheme =
-    preference === "system"
-      ? systemColorScheme === "dark"
-        ? "dark"
-        : "light"
-      : preference;
-
-  const value: ThemeContextValue = {
-    preference,
-    colorScheme,
-    colors: Colors[colorScheme],
-    setPreference,
-  };
-
-  return <ThemeContext value={value}>{children}</ThemeContext>;
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = use(ThemeContext);
-  if (!ctx) throw new Error("useTheme debe usarse dentro de <ThemeProvider>");
-  return ctx;
+  return (
+    <ThemeContext.Provider value={values}>{children}</ThemeContext.Provider>
+  );
 }

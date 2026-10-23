@@ -13,16 +13,16 @@ import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useAuth } from "@/src/hooks/use-auth";
+import { useTheme } from "@/src/hooks/use-theme";
 import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/tipos";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/types";
 
 type TabEstado = "vigentes" | "pronto" | "porVencer";
 
 export default function PromosScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
   const { usuario } = useAuth();
 
@@ -91,7 +91,7 @@ export default function PromosScreen() {
     setPromoSeleccionada(promo);
     setGenerandoCodigo(true);
     try {
-      const nuevoUso = await comerciosService.generarCodigoUso(promo.id, usuario.id);
+      const nuevoUso = await comerciosService.generarCodigoUso(promo.id);
       setUsoGenerado(nuevoUso);
       console.log("avisosActivos:", usuario.avisosActivos);
       if (usuario.avisosActivos) {
@@ -124,13 +124,13 @@ export default function PromosScreen() {
               onPress={() => setTabEstado(tab)}
               style={[
                 styles.tabBtn,
-                activo && { borderBottomColor: colors.tint, borderBottomWidth: 2 },
+                activo && { borderBottomColor: colors.accent, borderBottomWidth: 2 },
               ]}
             >
               <ThemedText
                 style={[
                   styles.tabBtnText,
-                  { color: activo ? colors.tint : colors.muted },
+                  { color: activo ? colors.accent : colors.muted },
                 ]}
               >
                 {titulos[tab]}
@@ -147,7 +147,7 @@ export default function PromosScreen() {
             style={[
               styles.chip,
               {
-                backgroundColor: rubroSeleccionado === null ? colors.tint : colors.card,
+                backgroundColor: rubroSeleccionado === null ? colors.accent : colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -155,7 +155,7 @@ export default function PromosScreen() {
             <ThemedText
               style={[
                 styles.chipText,
-                { color: rubroSeleccionado === null ? colors.onTint : colors.text },
+                { color: rubroSeleccionado === null ? colors.onAccent : colors.text },
               ]}
             >
               Todos
@@ -170,12 +170,12 @@ export default function PromosScreen() {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: activo ? colors.tint : colors.card,
+                    backgroundColor: activo ? colors.accent : colors.surface,
                     borderColor: colors.border,
                   },
                 ]}
               >
-                <ThemedText style={[styles.chipText, { color: activo ? colors.onTint : colors.text }]}>
+                <ThemedText style={[styles.chipText, { color: activo ? colors.onAccent : colors.text }]}>
                   {r.nombre}
                 </ThemedText>
               </Pressable>
@@ -199,7 +199,7 @@ export default function PromosScreen() {
             return (
               <View
                 key={promo.id}
-                style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
                 <View style={styles.cardHeader}>
                   <ThemedText type="subtitle" style={styles.flex}>
@@ -228,6 +228,8 @@ export default function PromosScreen() {
                     title="Mostrar mi código"
                     size="small"
                     icon="qr-code"
+                    loading={generandoCodigo && promoSeleccionada?.id === promo.id}
+                    disabled={generandoCodigo}
                     onPress={() => handleMostrarCodigo(promo)}
                   />
                 </View>
@@ -255,9 +257,9 @@ export default function PromosScreen() {
               {promoSeleccionada?.titulo}
             </ThemedText>
 
-            <View style={[styles.codeBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Ionicons name="qr-code-outline" size={80} color={colors.tint} />
-              <ThemedText type="subtitle" style={[styles.codeText, { color: colors.tint }]}>
+            <View style={[styles.codeBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+              <Ionicons name="qr-code-outline" size={80} color={colors.accent} />
+              <ThemedText type="subtitle" style={[styles.codeText, { color: colors.accent }]}>
                 {usoGenerado ? usoGenerado.codigo : "Generando..."}
               </ThemedText>
               <ThemedText style={[styles.small, { color: colors.muted, textAlign: "center" }]}>

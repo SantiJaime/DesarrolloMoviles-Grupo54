@@ -2,26 +2,25 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   View,
 } from "react-native";
-import MapView, { Marker, Callout } from "react-native-maps";
+import MapView, { Marker } from "react-native-maps";
 
 import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useTheme } from "@/src/hooks/use-theme";
 import { obtenerEstadoHorario } from "@/src/lib/horarios";
 import {
   abrirRutaEnMapas,
   pedirPermisoYUbicacion,
 } from "@/src/lib/location";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Comercio, Coordenadas, Rubro } from "@/src/tipos";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Comercio, Coordenadas, Rubro } from "@/src/types";
 
 const CENTRO_CDELU: Coordenadas = {
   latitud: -32.484,
@@ -29,7 +28,7 @@ const CENTRO_CDELU: Coordenadas = {
 };
 
 export default function MapaScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
 
   const [comercios, setComercios] = useState<Comercio[]>([]);
@@ -82,7 +81,7 @@ export default function MapaScreen() {
             style={[
               styles.chip,
               {
-                backgroundColor: rubroFiltro === null ? colors.tint : colors.card,
+                backgroundColor: rubroFiltro === null ? colors.accent : colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -90,7 +89,7 @@ export default function MapaScreen() {
             <ThemedText
               style={[
                 styles.chipText,
-                { color: rubroFiltro === null ? colors.onTint : colors.text },
+                { color: rubroFiltro === null ? colors.onAccent : colors.text },
               ]}
             >
               Todos
@@ -105,7 +104,7 @@ export default function MapaScreen() {
                 style={[
                   styles.chip,
                   {
-                    backgroundColor: activo ? colors.tint : colors.card,
+                    backgroundColor: activo ? colors.accent : colors.surface,
                     borderColor: colors.border,
                   },
                 ]}
@@ -113,7 +112,7 @@ export default function MapaScreen() {
                 <ThemedText
                   style={[
                     styles.chipText,
-                    { color: activo ? colors.onTint : colors.text },
+                    { color: activo ? colors.onAccent : colors.text },
                   ]}
                 >
                   {r.nombre}
@@ -167,7 +166,7 @@ export default function MapaScreen() {
         <View
           style={[
             styles.cardBottom,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            { backgroundColor: colors.surface, borderColor: colors.border },
           ]}
         >
           <View style={styles.rowBetween}>

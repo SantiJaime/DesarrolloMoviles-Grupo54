@@ -14,13 +14,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ThemedText } from "@/src/components/themed-text";
 import { Button } from "@/src/components/ui/button";
 import { TextField } from "@/src/components/ui/text-field";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useAuth } from "@/src/hooks/use-auth";
+import { useTheme } from "@/src/hooks/use-theme";
 import { registerSchema, type RegisterForm } from "@/src/schemas/auth.schema";
-import type { Rol } from "@/src/tipos";
+import type { Rol } from "@/src/types";
 
 export default function RegisterScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
   const { signUp } = useAuth();
 
@@ -80,14 +80,14 @@ export default function RegisterScreen() {
                     style={[
                       styles.rolBtn,
                       {
-                        backgroundColor: activo ? colors.tint : colors.card,
+                        backgroundColor: activo ? colors.accent : colors.surface,
                         borderColor: colors.border,
                       },
                     ]}
                   >
                     <ThemedText
                       style={{
-                        color: activo ? colors.onTint : colors.text,
+                        color: activo ? colors.onAccent : colors.text,
                         fontWeight: "600",
                         fontSize: 13,
                       }}

@@ -13,20 +13,20 @@ import {
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
-import { useAuth } from "@/src/context/auth-context";
-import { useTheme, type ThemePreference } from "@/src/context/theme-context";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Rubro } from "@/src/tipos";
+import { useAuth } from "@/src/hooks/use-auth";
+import type { ColorScheme } from "@/src/context/theme-context";
+import { useTheme } from "@/src/hooks/use-theme";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Rubro } from "@/src/types";
 
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: "system", label: "Sistema" },
+const THEME_OPTIONS: { value: ColorScheme; label: string }[] = [
   { value: "light", label: "Claro" },
   { value: "dark", label: "Oscuro" },
 ];
 
 export default function PerfilScreen() {
   const router = useRouter();
-  const { colors, preference, setPreference } = useTheme();
+  const { palette: colors, theme, setTheme } = useTheme();
   const {
     usuario,
     biometric,
@@ -78,15 +78,15 @@ export default function PerfilScreen() {
         {usuario ? (
           <>
             <View style={styles.header}>
-              <View style={[styles.avatar, { backgroundColor: colors.tint }]}>
-                <ThemedText style={[styles.avatarText, { color: colors.onTint }]}>
+              <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
+                <ThemedText style={[styles.avatarText, { color: colors.onAccent }]}>
                   {usuario.nombre.charAt(0).toUpperCase()}
                 </ThemedText>
               </View>
               <ThemedText type="subtitle">{usuario.nombre}</ThemedText>
               <ThemedText style={{ color: colors.muted }}>
                 {usuario.email} • Rol:{" "}
-                <ThemedText style={{ fontWeight: "bold", color: colors.tint }}>
+                <ThemedText style={{ fontWeight: "bold", color: colors.accent }}>
                   {usuario.rol.toUpperCase()}
                 </ThemedText>
               </ThemedText>
@@ -96,7 +96,7 @@ export default function PerfilScreen() {
               <View
                 style={[
                   styles.section,
-                  { backgroundColor: colors.card, borderColor: colors.border },
+                  { backgroundColor: colors.surface, borderColor: colors.border },
                 ]}
               >
                 <ThemedText type="defaultSemiBold">Gestión de tu comercio</ThemedText>
@@ -124,7 +124,7 @@ export default function PerfilScreen() {
                 <View
                   style={[
                     styles.section,
-                    { backgroundColor: colors.card, borderColor: colors.border },
+                    { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}
                 >
                   <View style={styles.row}>
@@ -141,11 +141,11 @@ export default function PerfilScreen() {
                 <View
                   style={[
                     styles.section,
-                    { backgroundColor: colors.card, borderColor: colors.border },
+                    { backgroundColor: colors.surface, borderColor: colors.border },
                   ]}
                 >
                   <View style={styles.row}>
-                    <Ionicons name="notifications" size={24} color={colors.tint} />
+                    <Ionicons name="notifications" size={24} color={colors.accent} />
                     <View style={styles.flex}>
                       <ThemedText type="defaultSemiBold">
                         Avisos de promociones
@@ -157,7 +157,7 @@ export default function PerfilScreen() {
                     <Switch
                       value={usuario.avisosActivos}
                       onValueChange={setAvisosActivos}
-                      trackColor={{ true: colors.tint }}
+                      trackColor={{ true: colors.accent }}
                     />
                   </View>
 
@@ -177,7 +177,7 @@ export default function PerfilScreen() {
                                 styles.chip,
                                 {
                                   backgroundColor: activo
-                                    ? colors.tint
+                                    ? colors.accent
                                     : colors.background,
                                   borderColor: colors.border,
                                 },
@@ -186,7 +186,7 @@ export default function PerfilScreen() {
                               <ThemedText
                                 style={{
                                   fontSize: 12,
-                                  color: activo ? colors.onTint : colors.text,
+                                  color: activo ? colors.onAccent : colors.text,
                                 }}
                               >
                                 {r.nombre}
@@ -204,11 +204,11 @@ export default function PerfilScreen() {
             <View
               style={[
                 styles.section,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
               <View style={styles.row}>
-                <Ionicons name="finger-print" size={26} color={colors.tint} />
+                <Ionicons name="finger-print" size={26} color={colors.accent} />
                 <View style={styles.flex}>
                   <ThemedText type="defaultSemiBold">
                     Ingreso con {biometric.label}
@@ -223,7 +223,7 @@ export default function PerfilScreen() {
                   value={Boolean(usuario.biometriaHabilitada)}
                   onValueChange={toggleBiometric}
                   disabled={!biometric.available || updatingBiometric}
-                  trackColor={{ true: colors.tint }}
+                  trackColor={{ true: colors.accent }}
                 />
               </View>
             </View>
@@ -231,25 +231,25 @@ export default function PerfilScreen() {
             <View
               style={[
                 styles.section,
-                { backgroundColor: colors.card, borderColor: colors.border },
+                { backgroundColor: colors.surface, borderColor: colors.border },
               ]}
             >
               <ThemedText type="defaultSemiBold">Apariencia</ThemedText>
               <View style={[styles.segmented, { borderColor: colors.border }]}>
                 {THEME_OPTIONS.map((opt) => {
-                  const sel = opt.value === preference;
+                  const sel = opt.value === theme;
                   return (
                     <Pressable
                       key={opt.value}
-                      onPress={() => setPreference(opt.value)}
+                      onPress={() => setTheme(opt.value)}
                       style={[
                         styles.segment,
-                        sel && { backgroundColor: colors.tint },
+                        sel && { backgroundColor: colors.accent },
                       ]}
                     >
                       <ThemedText
                         style={{
-                          color: sel ? colors.onTint : colors.text,
+                          color: sel ? colors.onAccent : colors.text,
                           fontWeight: "600",
                           fontSize: 13,
                         }}
@@ -272,7 +272,7 @@ export default function PerfilScreen() {
           </>
         ) : (
           <View style={styles.guestContainer}>
-            <View style={[styles.avatar, { backgroundColor: colors.card }]}>
+            <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
               <Ionicons name="person-outline" size={40} color={colors.muted} />
             </View>
             <ThemedText type="title">Modo Visitante</ThemedText>

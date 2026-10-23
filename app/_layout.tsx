@@ -8,8 +8,10 @@ import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import "react-native-reanimated";
 
-import { AuthProvider, useAuth } from "@/src/context/auth-context";
-import { ThemeProvider, useTheme } from "@/src/context/theme-context";
+import { AuthProvider } from "@/src/context/auth-context";
+import { useAuth } from "@/src/hooks/use-auth";
+import { ThemeProvider } from "@/src/context/theme-context";
+import { useTheme } from "@/src/hooks/use-theme";
 import { getDatabase } from "@/src/lib/db";
 import { configurarNotificaciones } from "@/src/lib/notifications";
 
@@ -31,7 +33,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { colorScheme } = useTheme();
+  const { theme } = useTheme();
   const { status } = useAuth();
 
   useEffect(() => {
@@ -40,13 +42,13 @@ function RootNavigator() {
 
   return (
     <NavigationThemeProvider
-      value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+      value={theme === "dark" ? DarkTheme : DefaultTheme}
     >
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(app)" />
         <Stack.Screen name="(auth)" />
       </Stack>
-      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+      <StatusBar style={theme === "dark" ? "light" : "dark"} />
     </NavigationThemeProvider>
   );
 }
