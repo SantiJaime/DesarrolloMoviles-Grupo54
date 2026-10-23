@@ -15,6 +15,7 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/context/auth-context";
 import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
 import { comerciosService } from "@/src/servicios/comercios";
 import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/tipos";
 
@@ -82,7 +83,7 @@ export default function PromosScreen() {
     return true;
   });
 
-  async function handleMostrarCodigo(promo: Promocion) {
+   async function handleMostrarCodigo(promo: Promocion) {
     if (!usuario) {
       router.push("/login");
       return;
@@ -92,6 +93,12 @@ export default function PromosScreen() {
     try {
       const nuevoUso = await comerciosService.generarCodigoUso(promo.id, usuario.id);
       setUsoGenerado(nuevoUso);
+      console.log("avisosActivos:", usuario.avisosActivos);
+      if (usuario.avisosActivos) {
+        const nombre =
+          comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "el comercio";
+        programarRecordatorioPromoPorVencer(promo, nombre);
+      }
     } finally {
       setGenerandoCodigo(false);
     }
