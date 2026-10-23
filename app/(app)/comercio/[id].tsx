@@ -19,8 +19,8 @@ import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useAuth } from "@/src/hooks/use-auth";
+import { useTheme } from "@/src/hooks/use-theme";
 import { guardarFotoEnAlmacenamiento } from "@/src/lib/file-cache";
 import {
   formatearHorariosCompletos,
@@ -28,11 +28,11 @@ import {
 } from "@/src/lib/horarios";
 import { abrirRutaEnMapas } from "@/src/lib/location";
 import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Comercio, Promocion, Resena, UsoDePromocion } from "@/src/tipos";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Comercio, Promocion, Resena, UsoDePromocion } from "@/src/types";
 
 export default function ComercioDetailScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { usuario, esFavorito, toggleFavorito } = useAuth();
@@ -129,13 +129,9 @@ export default function ComercioDetailScreen() {
     }
     setGuardandoResena(true);
     try {
-      await comerciosService.crearResena({
-        comercioId: comercio!.id,
-        usuarioId: usuario.id,
-        usuarioNombre: usuario.nombre,
+      await comerciosService.crearResena(comercio!.id, {
         estrellas: estrellasNueva,
         comentario: comentarioNuevo.trim(),
-        fotoUrl: fotoUri,
       });
       setModalResenaVisible(false);
       setComentarioNuevo("");
@@ -180,7 +176,7 @@ export default function ComercioDetailScreen() {
       return;
     }
     setPromoSeleccionada(promo);
-    const uso = await comerciosService.generarCodigoUso(promo.id, usuario.id);
+    const uso = await comerciosService.generarCodigoUso(promo.id);
     setUsoGenerado(uso);
     if (usuario.avisosActivos) {
       programarRecordatorioPromoPorVencer(promo, comercio?.nombre ?? "el comercio");
@@ -274,9 +270,9 @@ export default function ComercioDetailScreen() {
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.infoRow}>
-            <Ionicons name="location-outline" size={20} color={colors.tint} />
+            <Ionicons name="location-outline" size={20} color={colors.accent} />
             <ThemedText style={styles.flex}>{comercio.direccion}</ThemedText>
           </View>
 
@@ -319,7 +315,7 @@ export default function ComercioDetailScreen() {
             {promos.map((promo) => (
               <View
                 key={promo.id}
-                style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
               >
                 <View style={styles.rowBetween}>
                   <ThemedText type="defaultSemiBold" style={styles.flex}>
@@ -376,7 +372,7 @@ export default function ComercioDetailScreen() {
               return (
                 <View
                   key={r.id}
-                  style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
                 >
                   <View style={styles.rowBetween}>
                     <ThemedText type="defaultSemiBold">
@@ -507,8 +503,8 @@ export default function ComercioDetailScreen() {
               {promoSeleccionada?.titulo}
             </ThemedText>
             <View style={[styles.codeBox, { borderColor: colors.border }]}>
-              <Ionicons name="qr-code-outline" size={70} color={colors.tint} />
-              <ThemedText type="subtitle" style={{ color: colors.tint, letterSpacing: 2 }}>
+              <Ionicons name="qr-code-outline" size={70} color={colors.accent} />
+              <ThemedText type="subtitle" style={{ color: colors.accent, letterSpacing: 2 }}>
                 {usoGenerado ? usoGenerado.codigo : "..."}
               </ThemedText>
             </View>

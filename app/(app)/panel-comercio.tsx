@@ -1,4 +1,3 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -16,14 +15,15 @@ import { ThemedText } from "@/src/components/themed-text";
 import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { TextField } from "@/src/components/ui/text-field";
-import { useAuth } from "@/src/context/auth-context";
-import { useThemeColors } from "@/src/hooks/use-theme-color";
+import { useAuth } from "@/src/hooks/use-auth";
+import { useTheme } from "@/src/hooks/use-theme";
 import { guardarFotoEnAlmacenamiento } from "@/src/lib/file-cache";
-import { comerciosService } from "@/src/servicios/comercios";
-import type { Comercio, Promocion, Resena } from "@/src/tipos";
+import { archivosService } from "@/src/services/archivos.service";
+import { comerciosService } from "@/src/services/comercios.service";
+import type { Comercio, Promocion, Resena } from "@/src/types";
 
 export default function PanelComercioScreen() {
-  const colors = useThemeColors();
+  const { palette: colors } = useTheme();
   const router = useRouter();
   const { usuario } = useAuth();
 
@@ -82,7 +82,6 @@ export default function PanelComercioScreen() {
     setGuardandoDatos(true);
     try {
       await comerciosService.actualizarComercio({
-        id: comercioId,
         nombre: formNombre,
         direccion: formDireccion,
         telefono: formTelefono || null,
@@ -113,9 +112,9 @@ export default function PanelComercioScreen() {
         result.assets[0].uri,
         `comercio_${comercioId}.jpg`
       );
+      const subido = await archivosService.subir(local, `comercio_${comercioId}.jpg`);
       await comerciosService.actualizarComercio({
-        id: comercioId,
-        imagenes: [local, ...comercio!.imagenes],
+        imagenes: [subido.url, ...comercio!.imagenes].slice(0, 8),
       });
       await cargar();
     }
@@ -133,7 +132,6 @@ export default function PanelComercioScreen() {
       mesProximo.setDate(hoy.getDate() + 30);
 
       await comerciosService.crearPromocion({
-        comercioId,
         titulo: promoTitulo.trim(),
         detalle: promoDetalle.trim(),
         descuento: promoDescuento ? Number(promoDescuento) : null,
@@ -141,7 +139,6 @@ export default function PanelComercioScreen() {
         hasta: mesProximo.toISOString(),
         imagenUrl: null,
         soloApp: true,
-        activa: true,
       });
       setModalPromo(false);
       setPromoTitulo("");
@@ -190,7 +187,7 @@ export default function PanelComercioScreen() {
           />
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.rowBetween}>
             <ThemedText type="subtitle">Datos del comercio</ThemedText>
             <Button
@@ -226,7 +223,7 @@ export default function PanelComercioScreen() {
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <View style={styles.rowBetween}>
             <ThemedText type="subtitle">Promociones vigentes</ThemedText>
             <Button
@@ -246,7 +243,7 @@ export default function PanelComercioScreen() {
               <View key={p.id} style={[styles.itemBox, { borderColor: colors.border }]}>
                 <View style={styles.rowBetween}>
                   <ThemedText type="defaultSemiBold">{p.titulo}</ThemedText>
-                  <ThemedText style={[styles.badgeText, { color: colors.tint }]}>
+                  <ThemedText style={[styles.badgeText, { color: colors.accent }]}>
                     {p.usos} canjes
                   </ThemedText>
                 </View>
@@ -267,7 +264,7 @@ export default function PanelComercioScreen() {
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
           <ThemedText type="subtitle">Reseñas de clientes</ThemedText>
           {resenas.length === 0 ? (
             <ThemedText style={{ color: colors.muted }}>Sin reseñas aún.</ThemedText>

@@ -1,4 +1,4 @@
-import type { Horario } from "@/src/tipos";
+import type { Horario } from "@/src/types";
 
 export interface EstadoHorario {
   abierto: boolean;

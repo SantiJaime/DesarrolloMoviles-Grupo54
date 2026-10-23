@@ -1,6 +1,6 @@
 import * as Location from "expo-location";
 import { Linking, Platform } from "react-native";
-import type { Coordenadas } from "@/src/tipos";
+import type { Coordenadas } from "@/src/types";
 
 export async function pedirPermisoYUbicacion(): Promise<Coordenadas | null> {
   try {
