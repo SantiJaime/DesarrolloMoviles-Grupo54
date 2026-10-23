@@ -1,6 +1,6 @@
-import { createContext, use, useEffect, useState, type PropsWithChildren } from "react";
 import { authenticateWithBiometrics, getBiometricSupport, type BiometricSupport } from "@/src/lib/biometrics";
 import { confirmAsync } from "@/src/lib/confirm";
+import { vibrarFavorito } from "@/src/lib/haptics";
 import {
   clearSession,
   getBiometricUserId,
@@ -10,7 +10,8 @@ import {
 } from "@/src/lib/secure-session";
 import { authService, type AuthResult, type RegisterInput } from "@/src/services/auth.service";
 import type { Usuario } from "@/src/tipos";
-import { vibrarFavorito } from "@/src/lib/haptics";
+import { createContext, use, useEffect, useState, type PropsWithChildren } from "react";
+import { cancelarTodasLasNotificaciones } from "../lib/notifications";
 
 type AuthStatus = "loading" | "signedOut" | "signedIn";
 
@@ -214,12 +215,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
   async function setAvisosActivos(activos: boolean) {
     if (!usuario || !token) return;
+    if (!activos) await cancelarTodasLasNotificaciones();
     const updated = { ...usuario, avisosActivos: activos };
     setUsuario(updated);
     await saveSession(token, updated);
     authService.updateMe(token, { avisosActivos: activos }).catch(() => {});
   }
-
+  
   const value: AuthContextValue = {
     status,
     usuario,
