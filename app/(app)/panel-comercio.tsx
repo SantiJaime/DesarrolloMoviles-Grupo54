@@ -32,6 +32,7 @@ export default function PanelComercioScreen() {
   const [promos, setPromos] = useState<Promocion[]>([]);
   const [resenas, setResenas] = useState<Resena[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [modalPromo, setModalPromo] = useState(false);
   const [promoTitulo, setPromoTitulo] = useState("");
@@ -66,6 +67,8 @@ export default function PanelComercioScreen() {
       setFormTelefono(resCom.datos.telefono ?? "");
       setFormWhatsapp(resCom.datos.whatsapp ?? "");
       setFormDesc(resCom.datos.descripcion);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -76,6 +79,20 @@ export default function PanelComercioScreen() {
   }, [cargar]);
 
   if (loading) return <StateView type="loading" />;
+  if (error && !comercio) {
+    return (
+      <StateView
+        type="error"
+        title="No pudimos cargar el panel"
+        message={error}
+        actionLabel="Reintentar"
+        onAction={() => {
+          setLoading(true);
+          cargar();
+        }}
+      />
+    );
+  }
   if (!comercio) return <StateView type="empty" title="Comercio no encontrado" />;
 
   async function handleGuardarDatos() {
