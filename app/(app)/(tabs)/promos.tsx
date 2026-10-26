@@ -15,7 +15,7 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useTheme } from "@/src/hooks/use-theme";
-import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
+import { avisarPromosNuevasDeFavoritos, programarRecordatorioPromoPorVencer, } from "@/src/lib/notifications";
 import { comerciosService } from "@/src/services/comercios.service";
 import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/types";
 
@@ -57,6 +57,11 @@ export default function PromosScreen() {
     cargar();
   }, [cargar]);
 
+  useEffect(() => {
+    if (!usuario?.avisosActivos || promos.length === 0) return;
+    avisarPromosNuevasDeFavoritos(usuario.favoritos, promos, comercios);
+  }, [usuario?.avisosActivos, usuario?.favoritos, promos, comercios]);
+  
   const ahora = new Date().getTime();
   const tresDiasMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -83,7 +88,7 @@ export default function PromosScreen() {
     return true;
   });
 
-   async function handleMostrarCodigo(promo: Promocion) {
+  async function handleMostrarCodigo(promo: Promocion) {
     if (!usuario) {
       router.push("/login");
       return;
