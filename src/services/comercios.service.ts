@@ -1,3 +1,12 @@
+import {
+  guardarComerciosEnDB,
+  guardarRubrosEnDB,
+  obtenerComercioPorIdDeDB,
+  obtenerComerciosDeDB,
+  obtenerRubrosDeDB,
+} from "@/src/lib/db";
+import { estaAbiertoAhora } from "@/src/lib/horarios";
+import { checkNetworkStatus } from "@/src/lib/network";
 import type {
   ApiRespuesta,
   Comercio,
@@ -7,15 +16,6 @@ import type {
   Rubro,
   UsoDePromocion,
 } from "@/src/types";
-import {
-  guardarComerciosEnDB,
-  obtenerComerciosDeDB,
-  obtenerRubrosDeDB,
-  guardarRubrosEnDB,
-  obtenerComercioPorIdDeDB,
-} from "@/src/lib/db";
-import { checkNetworkStatus } from "@/src/lib/network";
-import { estaAbiertoAhora } from "@/src/lib/horarios";
 import { isAxiosError } from "axios";
 
 import { api } from "@/src/services/api/client";
@@ -168,7 +168,15 @@ export const comerciosService = {
     });
     return data;
   },
-
+  
+  async editarResena(
+    resenaId: string,
+    cambios: Pick<Resena, "estrellas" | "comentario">
+  ): Promise<ApiRespuesta<Resena>> {
+    const { data } = await api.patch<ApiRespuesta<Resena>>(`/resenas/${id(resenaId)}`, cambios);
+    return data;
+  },
+  
   async eliminarResena(resenaId: string): Promise<void> {
     await api.delete(`/resenas/${id(resenaId)}`);
   },
