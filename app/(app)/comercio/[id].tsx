@@ -48,6 +48,7 @@ export default function ComercioDetailScreen() {
   const [comentarioNuevo, setComentarioNuevo] = useState("");
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [guardandoResena, setGuardandoResena] = useState(false);
+    const [resenaEditandoId, setResenaEditandoId] = useState<string | null>(null);
 
   const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(null);
   const [usoGenerado, setUsoGenerado] = useState<UsoDePromocion | null>(null);
@@ -129,17 +130,33 @@ export default function ComercioDetailScreen() {
     }
     setGuardandoResena(true);
     try {
-      await comerciosService.crearResena(comercio!.id, {
+      const datos = {
         estrellas: estrellasNueva,
         comentario: comentarioNuevo.trim(),
-      });
+      };
+      if (resenaEditandoId) {
+        await comerciosService.editarResena(resenaEditandoId, datos);
+      } else {
+        await comerciosService.crearResena(comercio!.id, datos);
+      }
       setModalResenaVisible(false);
       setComentarioNuevo("");
       setFotoUri(null);
+      setResenaEditandoId(null);
       await cargar();
+    } catch (e) {
+      Alert.alert("No se pudo guardar", (e as Error).message);
     } finally {
       setGuardandoResena(false);
     }
+  }
+
+  function handleEditarResena(r: Resena) {
+    setResenaEditandoId(r.id);
+    setEstrellasNueva(r.estrellas);
+    setComentarioNuevo(r.comentario);
+    setFotoUri(null);
+    setModalResenaVisible(true);
   }
 
   async function handleEliminarResena(resenaId: string) {
@@ -357,7 +374,12 @@ export default function ComercioDetailScreen() {
               icon="star-outline"
               onPress={() => {
                 if (!usuario) router.push("/login");
-                else setModalResenaVisible(true);
+                else {
+                  setResenaEditandoId(null);
+                  setEstrellasNueva(5);
+                  setComentarioNuevo("");
+                  setModalResenaVisible(true);
+                }
               }}
             />
           </View>
@@ -405,11 +427,18 @@ export default function ComercioDetailScreen() {
                     </ThemedText>
                     <View style={styles.resenaActions}>
                       {esPropia ? (
-                        <Pressable onPress={() => handleEliminarResena(r.id)} hitSlop={8}>
-                          <ThemedText style={[styles.small, { color: "#d32f2f" }]}>
-                            Borrar
-                          </ThemedText>
-                        </Pressable>
+                        <>
+                          <Pressable onPress={() => handleEditarResena(r)} hitSlop={8}>
+                            <ThemedText style={[styles.small, { color: colors.accent }]}>
+                              Editar
+                            </ThemedText>
+                          </Pressable>
+                          <Pressable onPress={() => handleEliminarResena(r.id)} hitSlop={8}>
+                            <ThemedText style={[styles.small, { color: "#d32f2f" }]}>
+                              Borrar
+                            </ThemedText>
+                          </Pressable>
+                        </>
                       ) : (
                         <Pressable onPress={() => handleReportarResena(r.id)} hitSlop={8}>
                           <ThemedText style={[styles.small, { color: colors.muted }]}>
@@ -434,7 +463,9 @@ export default function ComercioDetailScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-            <ThemedText type="subtitle">Escribí tu reseña</ThemedText>
+            <ThemedText type="subtitle">
+              {resenaEditandoId ? "Editá tu reseña" : "Escribí tu reseña"}
+            </ThemedText>
             <View style={styles.starsSelector}>
               {([1, 2, 3, 4, 5] as const).map((num) => (
                 <Pressable key={num} onPress={() => setEstrellasNueva(num)}>
@@ -476,7 +507,7 @@ export default function ComercioDetailScreen() {
                 onPress={() => setModalResenaVisible(false)}
               />
               <Button
-                title="Publicar"
+                title={resenaEditandoId ? "Guardar" : "Publicar"}
                 loading={guardandoResena}
                 onPress={handleCrearResena}
               />

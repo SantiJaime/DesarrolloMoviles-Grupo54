@@ -15,7 +15,7 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useTheme } from "@/src/hooks/use-theme";
-import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
+import { avisarPromosNuevasDeFavoritos, programarRecordatorioPromoPorVencer, } from "@/src/lib/notifications";
 import { comerciosService } from "@/src/services/comercios.service";
 import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/types";
 
@@ -30,6 +30,7 @@ export default function PromosScreen() {
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [rubros, setRubros] = useState<Rubro[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
   const [tabEstado, setTabEstado] = useState<TabEstado>("vigentes");
@@ -39,6 +40,8 @@ export default function PromosScreen() {
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
 
   const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [resPromos, resComercios, resRubros] = await Promise.all([
         comerciosService.obtenerPromociones(),
@@ -48,6 +51,8 @@ export default function PromosScreen() {
       setPromos(resPromos.datos);
       setComercios(resComercios.datos);
       setRubros(resRubros.datos);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -57,6 +62,11 @@ export default function PromosScreen() {
     cargar();
   }, [cargar]);
 
+  useEffect(() => {
+    if (!usuario?.avisosActivos || promos.length === 0) return;
+    avisarPromosNuevasDeFavoritos(usuario.favoritos, promos, comercios);
+  }, [usuario?.avisosActivos, usuario?.favoritos, promos, comercios]);
+  
   const ahora = new Date().getTime();
   const tresDiasMs = 3 * 24 * 60 * 60 * 1000;
 
@@ -83,7 +93,7 @@ export default function PromosScreen() {
     return true;
   });
 
-   async function handleMostrarCodigo(promo: Promocion) {
+  async function handleMostrarCodigo(promo: Promocion) {
     if (!usuario) {
       router.push("/login");
       return;
@@ -93,7 +103,6 @@ export default function PromosScreen() {
     try {
       const nuevoUso = await comerciosService.generarCodigoUso(promo.id);
       setUsoGenerado(nuevoUso);
-      console.log("avisosActivos:", usuario.avisosActivos);
       if (usuario.avisosActivos) {
         const nombre =
           comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "el comercio";
@@ -106,6 +115,18 @@ export default function PromosScreen() {
 
   if (loading) {
     return <StateView type="loading" message="Cargando promociones..." />;
+  }
+
+  if (error) {
+    return (
+      <StateView
+        type="error"
+        title="No pudimos cargar las promociones"
+        message={error}
+        actionLabel="Reintentar"
+        onAction={cargar}
+      />
+    );
   }
 
   return (
