@@ -1,5 +1,6 @@
-import React, { useState, createContext, useMemo } from "react";
 import { palettes } from "@/src/constants/theme";
+import { getKV, setKV } from "@/src/lib/db";
+import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
 import { Palette } from "../types/colors";
 
 export type ColorScheme = "dark" | "light";
@@ -17,7 +18,18 @@ type ThemeProviderProps = {
 };
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<ColorScheme>("dark");
+  const [theme, setThemeState] = useState<ColorScheme>("dark");
+
+  useEffect(() => {
+    getKV("tema").then((guardado) => {
+      if (guardado === "dark" || guardado === "light") setThemeState(guardado);
+    });
+  }, []);
+
+  const setTheme = useCallback((nuevo: ColorScheme) => {
+    setThemeState(nuevo);
+    setKV("tema", nuevo);
+  }, []);
 
   const values = useMemo(() => {
     return {
@@ -25,7 +37,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       setTheme,
       palette: palettes[theme],
     };
-  }, [theme]);
+  }, [theme, setTheme]);
 
   return (
     <ThemeContext.Provider value={values}>{children}</ThemeContext.Provider>
