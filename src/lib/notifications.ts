@@ -1,4 +1,5 @@
-import type { Promocion } from "@/src/types";
+import { getKV, setKV } from "@/src/lib/db";
+import type { Comercio, Promocion } from "@/src/types";
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 
@@ -45,6 +46,34 @@ export async function notificarPromoNuevaDeFavorito(
       },
       trigger: null,
     });
+  } catch { }
+}
+
+export async function avisarPromosNuevasDeFavoritos(
+  favoritos: string[],
+  promos: Promocion[],
+  comercios: Comercio[]
+) {
+  try {
+    const guardado = await getKV("promos_avisadas");
+    const yaAvisadas: string[] = guardado ? JSON.parse(guardado) : [];
+    const ahora = Date.now();
+    const vigentes = promos.filter(
+      (p) =>
+        p.activa &&
+        new Date(p.desde).getTime() <= ahora &&
+        new Date(p.hasta).getTime() > ahora
+    );
+    const nuevas = vigentes.filter(
+      (p) => favoritos.includes(p.comercioId) && !yaAvisadas.includes(p.id)
+    );
+    await setKV("promos_avisadas", JSON.stringify(vigentes.map((p) => p.id)));
+    if (guardado === null) return;
+    for (const promo of nuevas) {
+      const nombre =
+        comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "un comercio";
+      await notificarPromoNuevaDeFavorito(nombre, promo);
+    }
   } catch { }
 }
 
