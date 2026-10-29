@@ -30,6 +30,7 @@ export default function PromosScreen() {
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [rubros, setRubros] = useState<Rubro[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
   const [tabEstado, setTabEstado] = useState<TabEstado>("vigentes");
@@ -39,6 +40,8 @@ export default function PromosScreen() {
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
 
   const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [resPromos, resComercios, resRubros] = await Promise.all([
         comerciosService.obtenerPromociones(),
@@ -48,6 +51,8 @@ export default function PromosScreen() {
       setPromos(resPromos.datos);
       setComercios(resComercios.datos);
       setRubros(resRubros.datos);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -83,7 +88,7 @@ export default function PromosScreen() {
     return true;
   });
 
-   async function handleMostrarCodigo(promo: Promocion) {
+  async function handleMostrarCodigo(promo: Promocion) {
     if (!usuario) {
       router.push("/login");
       return;
@@ -93,7 +98,6 @@ export default function PromosScreen() {
     try {
       const nuevoUso = await comerciosService.generarCodigoUso(promo.id);
       setUsoGenerado(nuevoUso);
-      console.log("avisosActivos:", usuario.avisosActivos);
       if (usuario.avisosActivos) {
         const nombre =
           comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "el comercio";
@@ -106,6 +110,18 @@ export default function PromosScreen() {
 
   if (loading) {
     return <StateView type="loading" message="Cargando promociones..." />;
+  }
+
+  if (error) {
+    return (
+      <StateView
+        type="error"
+        title="No pudimos cargar las promociones"
+        message={error}
+        actionLabel="Reintentar"
+        onAction={cargar}
+      />
+    );
   }
 
   return (

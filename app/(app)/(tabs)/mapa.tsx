@@ -34,12 +34,15 @@ export default function MapaScreen() {
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [rubros, setRubros] = useState<Rubro[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(null);
   const [permisoDenegado, setPermisoDenegado] = useState(false);
   const [rubroFiltro, setRubroFiltro] = useState<string | null>(null);
   const [comercioSeleccionado, setComercioSeleccionado] = useState<Comercio | null>(null);
 
   const cargar = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
       const [resCom, resRubros] = await Promise.all([
         comerciosService.obtenerComercios(),
@@ -47,6 +50,8 @@ export default function MapaScreen() {
       ]);
       setComercios(resCom.datos);
       setRubros(resRubros.datos);
+    } catch (e) {
+      setError((e as Error).message);
     } finally {
       setLoading(false);
     }
@@ -66,6 +71,18 @@ export default function MapaScreen() {
 
   if (loading) {
     return <StateView type="loading" message="Cargando mapa..." />;
+  }
+
+  if (error) {
+    return (
+      <StateView
+        type="error"
+        title="No pudimos cargar el mapa"
+        message={error}
+        actionLabel="Reintentar"
+        onAction={cargar}
+      />
+    );
   }
 
   return (
