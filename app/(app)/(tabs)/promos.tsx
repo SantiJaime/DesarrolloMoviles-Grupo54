@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -38,25 +39,32 @@ export default function PromosScreen() {
   const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(null);
   const [usoGenerado, setUsoGenerado] = useState<UsoDePromocion | null>(null);
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
+  const [promosUsadas, setPromosUsadas] = useState<string[]>([]);
 
+  const usuarioId = usuario?.id;
   const cargar = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [resPromos, resComercios, resRubros] = await Promise.all([
+      const [resPromos, resComercios, resRubros, resUsos] = await Promise.all([
         comerciosService.obtenerPromociones(),
         comerciosService.obtenerComercios(),
         comerciosService.obtenerRubros(),
+        // Sin sesión no hay usos; si falla, se listan igual las promos.
+        usuarioId ? comerciosService.obtenerMisUsos().catch(() => null) : null,
       ]);
       setPromos(resPromos.datos);
       setComercios(resComercios.datos);
       setRubros(resRubros.datos);
+      setPromosUsadas(
+        resUsos?.datos.filter((u) => u.validadoEn !== null).map((u) => u.promocionId) ?? []
+      );
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [usuarioId]);
 
   useEffect(() => {
     cargar();
@@ -108,6 +116,9 @@ export default function PromosScreen() {
           comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "el comercio";
         programarRecordatorioPromoPorVencer(promo, nombre);
       }
+    } catch (e) {
+      setPromoSeleccionada(null);
+      Alert.alert(promo.titulo, (e as Error).message);
     } finally {
       setGenerandoCodigo(false);
     }
@@ -245,14 +256,22 @@ export default function PromosScreen() {
                   <ThemedText style={[styles.usosText, { color: colors.muted }]}>
                     Usada {promo.usos} veces
                   </ThemedText>
-                  <Button
-                    title="Mostrar mi código"
-                    size="small"
-                    icon="qr-code"
-                    loading={generandoCodigo && promoSeleccionada?.id === promo.id}
-                    disabled={generandoCodigo}
-                    onPress={() => handleMostrarCodigo(promo)}
-                  />
+                  {!promo.soloApp ? (
+                    <ThemedText style={[styles.usosText, { color: colors.muted }]}>
+                      Se aplica en el local
+                    </ThemedText>
+                  ) : promosUsadas.includes(promo.id) ? (
+                    <Button title="Ya la usaste" size="small" icon="checkmark" disabled />
+                  ) : (
+                    <Button
+                      title="Mostrar mi código"
+                      size="small"
+                      icon="qr-code"
+                      loading={generandoCodigo && promoSeleccionada?.id === promo.id}
+                      disabled={generandoCodigo}
+                      onPress={() => handleMostrarCodigo(promo)}
+                    />
+                  )}
                 </View>
               </View>
             );
