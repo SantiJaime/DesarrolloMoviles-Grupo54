@@ -194,6 +194,11 @@ export const comerciosService = {
     return data.datos;
   },
 
+  async obtenerMisUsos(): Promise<ApiRespuesta<UsoDePromocion[]>> {
+    const { data } = await api.get<ApiRespuesta<UsoDePromocion[]>>("/yo/usos");
+    return data;
+  },
+
   async validarCodigoPromocion(codigo: string): Promise<UsoDePromocion> {
     const { data } = await api.post<ApiRespuesta<UsoDePromocion>>("/mi-comercio/usos/validar", { codigo });
     return data.datos;
