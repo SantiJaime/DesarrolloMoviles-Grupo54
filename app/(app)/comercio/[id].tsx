@@ -193,10 +193,15 @@ export default function ComercioDetailScreen() {
       return;
     }
     setPromoSeleccionada(promo);
-    const uso = await comerciosService.generarCodigoUso(promo.id);
-    setUsoGenerado(uso);
-    if (usuario.avisosActivos) {
-      programarRecordatorioPromoPorVencer(promo, comercio?.nombre ?? "el comercio");
+    try {
+      const uso = await comerciosService.generarCodigoUso(promo.id);
+      setUsoGenerado(uso);
+      if (usuario.avisosActivos) {
+        programarRecordatorioPromoPorVencer(promo, comercio?.nombre ?? "el comercio");
+      }
+    } catch (e) {
+      setPromoSeleccionada(null);
+      Alert.alert(promo.titulo, (e as Error).message);
     }
   }
 
