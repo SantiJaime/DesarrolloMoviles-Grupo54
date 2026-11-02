@@ -1,5 +1,7 @@
 import { useVideoPlayer, VideoView } from "expo-video";
-import { StyleSheet, View } from "react-native";
+import { useEvent } from "expo";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { StateView } from "@/src/components/state-view";
 
 interface VideoProps {
   videoUrl: string;
@@ -10,12 +12,31 @@ export function ComercioVideo({ videoUrl }: VideoProps) {
     p.loop = false;
     p.muted = false;
   });
+  const { status } = useEvent(player, "statusChange", {
+    status: player.status,
+  });
+  if (status === "error")
+    return (
+      <StateView
+        type="error"
+        title="Video no disponible"
+        message="Revisá la conexión o guardá el video en el teléfono para verlo sin datos."
+        actionLabel="Reintentar"
+        onAction={() => {
+          player.replaceAsync(videoUrl).catch(() => {});
+        }}
+      />
+    );
 
   return (
     <View style={styles.container}>
+      {status === "loading" && (
+        <ActivityIndicator accessibilityLabel="Cargando video" />
+      )}
       <VideoView
         style={styles.video}
         player={player}
+        nativeControls
         allowsFullscreen
         allowsPictureInPicture
         startsPictureInPictureAutomatically={false}

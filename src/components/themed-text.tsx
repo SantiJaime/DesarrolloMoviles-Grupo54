@@ -6,7 +6,11 @@ export type ThemedTextProps = TextProps & {
   type?: keyof typeof styles;
 };
 
-export function ThemedText({ style, type = "default", ...rest }: ThemedTextProps) {
+export function ThemedText({
+  style,
+  type = "default",
+  ...rest
+}: ThemedTextProps) {
   const { palette: colors } = useTheme();
 
   return (

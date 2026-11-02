@@ -28,11 +28,18 @@ export function useNetworkStatus() {
     }
 
     check();
-    const interval = setInterval(check, 10000);
+    const timer = setInterval(check, 5000);
+    const subscription = Network.addNetworkStateListener((state) => {
+      if (isMounted)
+        setIsOnline(
+          Boolean(state.isConnected && state.isInternetReachable !== false),
+        );
+    });
 
     return () => {
       isMounted = false;
-      clearInterval(interval);
+      clearInterval(timer);
+      subscription.remove();
     };
   }, []);
 

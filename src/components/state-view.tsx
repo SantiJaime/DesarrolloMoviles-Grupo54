@@ -1,8 +1,9 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ComponentProps } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/src/components/themed-text";
+import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "@/src/hooks/use-theme";
 
@@ -12,7 +13,7 @@ type StateViewProps =
       type: "empty" | "error" | "info";
       title: string;
       message?: string;
-      icon?: ComponentProps<typeof MaterialIcons>["name"];
+      icon?: ComponentProps<typeof Ionicons>["name"];
       actionLabel?: string;
       onAction?: () => void;
     };
@@ -22,26 +23,26 @@ export function StateView(props: StateViewProps) {
 
   if (props.type === "loading") {
     return (
-      <View style={styles.container}>
+      <ThemedView style={styles.container}>
         <ActivityIndicator size="large" color={colors.accent} />
         {props.message ? (
           <ThemedText style={{ color: colors.muted }}>
             {props.message}
           </ThemedText>
         ) : null}
-      </View>
+      </ThemedView>
     );
   }
 
   const defaultIcon = {
-    empty: "inbox",
-    error: "error-outline",
-    info: "info-outline",
+    empty: "file-tray-outline",
+    error: "alert-circle-outline",
+    info: "information-circle-outline",
   } as const;
 
   return (
-    <View style={styles.container}>
-      <MaterialIcons
+    <ThemedView style={styles.container}>
+      <Ionicons
         name={props.icon ?? defaultIcon[props.type]}
         size={56}
         color={props.type === "error" ? colors.danger : colors.muted}
@@ -61,7 +62,7 @@ export function StateView(props: StateViewProps) {
           style={styles.action}
         />
       ) : null}
-    </View>
+    </ThemedView>
   );
 }
 

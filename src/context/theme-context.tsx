@@ -1,7 +1,13 @@
 import { palettes } from "@/src/constants/theme";
 import { getKV, setKV } from "@/src/lib/db";
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
-import { Palette } from "../types/colors";
+import React, {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { Palette } from "../tipos/colors";
 
 export type ColorScheme = "dark" | "light";
 

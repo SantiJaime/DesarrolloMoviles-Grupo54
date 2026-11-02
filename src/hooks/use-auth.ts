@@ -2,7 +2,10 @@ import { restaurarSesion, useAuthContext } from "@/src/context/auth-context";
 import { authenticateWithBiometrics } from "@/src/lib/biometrics";
 import { confirmAsync } from "@/src/lib/confirm";
 import { vibrarFavorito } from "@/src/lib/haptics";
-import { cancelarTodasLasNotificaciones } from "@/src/lib/notifications";
+import {
+  cancelarTodasLasNotificaciones,
+  quitarAvisosRemotos,
+} from "@/src/lib/notifications";
 import {
   clearSession,
   getBiometricUserId,
@@ -10,8 +13,16 @@ import {
   saveSession,
   setBiometricUserId as guardarBiometricUserId,
 } from "@/src/lib/secure-session";
-import { authService, type AuthResult, type RegisterInput } from "@/src/services/auth.service";
-import type { Usuario } from "@/src/types";
+import {
+  authService,
+  type AuthResult,
+  type RegisterInput,
+} from "@/src/servicios/auth.service";
+import type { Usuario } from "@/src/tipos";
+import {
+  aplicarPreferenciasPendientes,
+  guardarPreferenciasPendientes,
+} from "@/src/servicios/preferencias.service";
 
 export function useAuth() {
   const {
@@ -28,14 +39,23 @@ export function useAuth() {
   } = useAuthContext();
 
   async function activarBiometria(user: Usuario): Promise<boolean> {
-    const ok = await authenticateWithBiometrics("Confirmá tu identidad para activar el ingreso rápido");
+    const ok = await authenticateWithBiometrics(
+      "Confirmá tu identidad para activar el ingreso rápido",
+    );
     if (!ok) return false;
     await guardarBiometricUserId(user.id);
     setBiometricUserId(user.id);
     return true;
   }
 
-  async function completarIngreso({ token: nuevoToken, usuario: user }: AuthResult) {
+  async function completarIngreso({
+    token: nuevoToken,
+    usuario: user,
+  }: AuthResult) {
+    if ((await getStoredSession())?.usuario.id !== user.id) {
+      await cancelarTodasLasNotificaciones();
+      await quitarAvisosRemotos();
+    }
     let bioUserId = await getBiometricUserId();
     if (bioUserId && bioUserId !== user.id) {
       await guardarBiometricUserId(null);
@@ -49,12 +69,15 @@ export function useAuth() {
         "Ingreso rápido",
         `¿Querés usar tu ${biometric.label} para ingresar la próxima vez?`,
         "Activar",
-        "Ahora no"
+        "Ahora no",
       );
       if (quiere) biometriaHabilitada = await activarBiometria(user);
     }
 
-    const final = { ...user, biometriaHabilitada };
+    const final = await aplicarPreferenciasPendientes({
+      ...user,
+      biometriaHabilitada,
+    });
     await saveSession(nuevoToken, final);
     setRememberedUser(biometriaHabilitada ? final : null);
     setSesion({ token: nuevoToken, usuario: final });
@@ -81,7 +104,9 @@ export function useAuth() {
       setRememberedUser(null);
       return false;
     }
-    const ok = await authenticateWithBiometrics(`Ingresar como ${stored.usuario.nombre}`);
+    const ok = await authenticateWithBiometrics(
+      `Ingresar como ${stored.usuario.nombre}`,
+    );
     if (!ok) return false;
     try {
       setSesion(await restaurarSesion(stored.token));
@@ -95,12 +120,16 @@ export function useAuth() {
   }
 
   async function signOut() {
+    await cancelarTodasLasNotificaciones();
+    await quitarAvisosRemotos();
     if (usuario && biometricUserId === usuario.id) setRememberedUser(usuario);
     else await clearSession();
     setSesion(null);
   }
 
   async function forgetDevice() {
+    await cancelarTodasLasNotificaciones();
+    await quitarAvisosRemotos();
     await clearSession();
     setBiometricUserId(null);
     setRememberedUser(null);
@@ -131,27 +160,25 @@ export function useAuth() {
       : [...usuario.favoritos, comercioId];
 
     await vibrarFavorito();
-    setUsuario({ ...usuario, favoritos });
-    try {
-      if (existe) await authService.quitarFavorito(comercioId);
-      else await authService.agregarFavorito(comercioId);
-      await guardarUsuario({ ...usuario, favoritos });
-    } catch {
-      setUsuario(usuario);
-    }
+    await guardarPreferenciasPendientes(usuario.id, {
+      favoritos: { [comercioId]: !existe },
+    });
+    await guardarUsuario({ ...usuario, favoritos });
   }
 
   async function setRubrosDeInteres(rubros: string[]) {
     if (!usuario) return;
+    await guardarPreferenciasPendientes(usuario.id, {
+      rubrosDeInteres: rubros,
+    });
     await guardarUsuario({ ...usuario, rubrosDeInteres: rubros });
-    authService.updateMe({ rubrosDeInteres: rubros }).catch(() => {});
   }
 
   async function setAvisosActivos(activos: boolean) {
     if (!usuario) return;
-    if (!activos) await cancelarTodasLasNotificaciones();
+    await guardarPreferenciasPendientes(usuario.id, { avisosActivos: activos });
     await guardarUsuario({ ...usuario, avisosActivos: activos });
-    authService.updateMe({ avisosActivos: activos }).catch(() => {});
+    if (!activos) await cancelarTodasLasNotificaciones();
   }
 
   return {
@@ -159,7 +186,10 @@ export function useAuth() {
     usuario,
     token,
     biometric,
-    canUseBiometricLogin: biometric.available && biometricUserId !== null && rememberedUser !== null,
+    canUseBiometricLogin:
+      biometric.available &&
+      biometricUserId !== null &&
+      rememberedUser !== null,
     rememberedUser,
     signIn,
     signUp,

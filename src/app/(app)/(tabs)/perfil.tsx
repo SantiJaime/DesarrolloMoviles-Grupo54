@@ -1,0 +1,433 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
+
+import { ThemedText } from "@/src/components/themed-text";
+import { ThemedView } from "@/src/components/themed-view";
+import { Button } from "@/src/components/ui/button";
+import { useAuth } from "@/src/hooks/use-auth";
+import type { ColorScheme } from "@/src/context/theme-context";
+import { useTheme } from "@/src/hooks/use-theme";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Rubro } from "@/src/tipos";
+
+const THEME_OPTIONS: { value: ColorScheme; label: string }[] = [
+  { value: "light", label: "Claro" },
+  { value: "dark", label: "Oscuro" },
+];
+
+export default function PerfilScreen() {
+  const router = useRouter();
+  const { palette: colors, theme, setTheme } = useTheme();
+  const {
+    usuario,
+    biometric,
+    setBiometricEnabled,
+    signOut,
+    setRubrosDeInteres,
+    setAvisosActivos,
+  } = useAuth();
+
+  const [rubros, setRubros] = useState<Rubro[]>([]);
+  const [updatingBiometric, setUpdatingBiometric] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  useEffect(() => {
+    comerciosService
+      .obtenerRubros()
+      .then((res) => setRubros(res.datos))
+      .catch((e) => Alert.alert("Rubros", (e as Error).message));
+  }, []);
+
+  async function toggleBiometric(enabled: boolean) {
+    setUpdatingBiometric(true);
+    try {
+      const result = await setBiometricEnabled(enabled);
+      if (enabled && !result) {
+        Alert.alert("Ingreso biométrico", "No se pudo verificar tu identidad.");
+      }
+    } finally {
+      setUpdatingBiometric(false);
+    }
+  }
+
+  async function handleSignOut() {
+    setSigningOut(true);
+    try {
+      await signOut();
+    } catch (e) {
+      Alert.alert("Sesión", (e as Error).message);
+    }
+    setSigningOut(false);
+  }
+
+  function toggleRubroInteres(rubroId: string) {
+    if (!usuario) return;
+    const actuales = usuario.rubrosDeInteres || [];
+    const nuevos = actuales.includes(rubroId)
+      ? actuales.filter((id) => id !== rubroId)
+      : [...actuales, rubroId];
+    setRubrosDeInteres(nuevos);
+  }
+
+  return (
+    <ThemedView style={styles.flex}>
+      <ScrollView contentContainerStyle={styles.container}>
+        {usuario ? (
+          <>
+            <View style={styles.header}>
+              <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
+                <ThemedText
+                  style={[styles.avatarText, { color: colors.onAccent }]}
+                >
+                  {usuario.nombre.charAt(0).toUpperCase()}
+                </ThemedText>
+              </View>
+              <ThemedText type="subtitle">{usuario.nombre}</ThemedText>
+              <ThemedText style={{ color: colors.muted }}>
+                {usuario.email} • Rol:{" "}
+                <ThemedText
+                  style={{ fontWeight: "bold", color: colors.accent }}
+                >
+                  {usuario.rol.toUpperCase()}
+                </ThemedText>
+              </ThemedText>
+            </View>
+
+            {usuario.rol === "comercio" && (
+              <View
+                style={[
+                  styles.section,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <ThemedText type="defaultSemiBold">
+                  Gestión de tu comercio
+                </ThemedText>
+                <ThemedText style={[styles.small, { color: colors.muted }]}>
+                  Accedé a tus herramientas de administración y lector en
+                  mostrador.
+                </ThemedText>
+                <View style={styles.adminButtons}>
+                  <Button
+                    title="Panel de Mi Comercio"
+                    icon="storefront"
+                    onPress={() => router.push("/panel-comercio")}
+                  />
+                  <Button
+                    title="Escanear cupón en mostrador"
+                    variant="secondary"
+                    icon="qr-code"
+                    onPress={() => router.push("/validar-cupon")}
+                  />
+                </View>
+              </View>
+            )}
+
+            <Button
+              title="Mis cupones e historial"
+              icon="receipt-outline"
+              variant="secondary"
+              onPress={() => router.push("/scan/historial")}
+            />
+            {usuario.rol === "vecino" && (
+              <>
+                <View
+                  style={[
+                    styles.section,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.row}>
+                    <Ionicons name="heart" size={24} color="#e91e63" />
+                    <View style={styles.flex}>
+                      <ThemedText type="defaultSemiBold">Favoritos</ThemedText>
+                      <ThemedText
+                        style={[styles.small, { color: colors.muted }]}
+                      >
+                        Tenés {usuario.favoritos.length} comercio(s) guardados.
+                      </ThemedText>
+                    </View>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.section,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.row}>
+                    <Ionicons
+                      name="notifications"
+                      size={24}
+                      color={colors.accent}
+                    />
+                    <View style={styles.flex}>
+                      <ThemedText type="defaultSemiBold">
+                        Avisos de promociones
+                      </ThemedText>
+                      <ThemedText
+                        style={[styles.small, { color: colors.muted }]}
+                      >
+                        Recibir alertas de tus favoritos y rubros elegidos.
+                      </ThemedText>
+                    </View>
+                    <Switch
+                      value={usuario.avisosActivos}
+                      onValueChange={setAvisosActivos}
+                      trackColor={{ true: colors.accent }}
+                    />
+                  </View>
+
+                  {usuario.avisosActivos && (
+                    <View style={styles.rubrosInteres}>
+                      <ThemedText style={[styles.small, { fontWeight: "600" }]}>
+                        Elegí tus rubros de interés:
+                      </ThemedText>
+                      <View style={styles.chipsWrap}>
+                        {rubros.map((r) => {
+                          const activo = usuario.rubrosDeInteres.includes(r.id);
+                          return (
+                            <Pressable
+                              key={r.id}
+                              onPress={() => toggleRubroInteres(r.id)}
+                              style={[
+                                styles.chip,
+                                {
+                                  backgroundColor: activo
+                                    ? colors.accent
+                                    : colors.background,
+                                  borderColor: colors.border,
+                                },
+                              ]}
+                            >
+                              <ThemedText
+                                style={{
+                                  fontSize: 12,
+                                  color: activo ? colors.onAccent : colors.text,
+                                }}
+                              >
+                                {r.nombre}
+                              </ThemedText>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </>
+            )}
+
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <View style={styles.row}>
+                <Ionicons name="finger-print" size={26} color={colors.accent} />
+                <View style={styles.flex}>
+                  <ThemedText type="defaultSemiBold">
+                    Ingreso con {biometric.label}
+                  </ThemedText>
+                  <ThemedText style={[styles.small, { color: colors.muted }]}>
+                    {biometric.available
+                      ? "Accedé a la aplicación sin escribir contraseña."
+                      : "Biometría no configurada en este dispositivo."}
+                  </ThemedText>
+                </View>
+                <Switch
+                  value={Boolean(usuario.biometriaHabilitada)}
+                  onValueChange={toggleBiometric}
+                  disabled={!biometric.available || updatingBiometric}
+                  trackColor={{ true: colors.accent }}
+                />
+              </View>
+            </View>
+
+            <View
+              style={[
+                styles.section,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <ThemedText type="defaultSemiBold">Apariencia</ThemedText>
+              <View style={[styles.segmented, { borderColor: colors.border }]}>
+                {THEME_OPTIONS.map((opt) => {
+                  const sel = opt.value === theme;
+                  return (
+                    <Pressable
+                      key={opt.value}
+                      onPress={() => setTheme(opt.value)}
+                      style={[
+                        styles.segment,
+                        sel && { backgroundColor: colors.accent },
+                      ]}
+                    >
+                      <ThemedText
+                        style={{
+                          color: sel ? colors.onAccent : colors.text,
+                          fontWeight: "600",
+                          fontSize: 13,
+                        }}
+                      >
+                        {opt.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <Button
+              title="Cerrar sesión"
+              variant="danger"
+              icon="log-out-outline"
+              loading={signingOut}
+              onPress={handleSignOut}
+            />
+          </>
+        ) : (
+          <View style={styles.guestContainer}>
+            <View style={[styles.avatar, { backgroundColor: colors.surface }]}>
+              <Ionicons name="person-outline" size={40} color={colors.muted} />
+            </View>
+            <ThemedText type="title">Modo Visitante</ThemedText>
+            <ThemedText style={[styles.center, { color: colors.muted }]}>
+              Estás navegando la app como invitado. Podés ver todos los
+              comercios, horarios y mapa sin registrarte.
+            </ThemedText>
+
+            <View style={styles.guestActions}>
+              <Button
+                title="Iniciar sesión"
+                icon="log-in-outline"
+                onPress={() => router.push("/login")}
+              />
+              <Button
+                title="Registrarse"
+                variant="secondary"
+                icon="person-add-outline"
+                onPress={() => router.push("/register")}
+              />
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  container: {
+    padding: 20,
+    gap: 18,
+  },
+  header: {
+    alignItems: "center",
+    gap: 4,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: "bold",
+  },
+  section: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  adminButtons: {
+    gap: 10,
+    marginTop: 4,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  rubrosInteres: {
+    gap: 8,
+    marginTop: 8,
+  },
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  segmented: {
+    flexDirection: "row",
+    marginTop: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  segment: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  small: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  center: {
+    textAlign: "center",
+  },
+  guestContainer: {
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 20,
+  },
+  guestActions: {
+    width: "100%",
+    gap: 12,
+    marginTop: 12,
+  },
+  demoSwitch: {
+    borderTopWidth: 1,
+    paddingTop: 16,
+    gap: 10,
+  },
+  demoButtons: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 10,
+  },
+});

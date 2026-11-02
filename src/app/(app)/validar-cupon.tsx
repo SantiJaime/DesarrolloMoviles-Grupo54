@@ -1,0 +1,330 @@
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import { formatearFechaHora } from "@/src/lib/fechas";
+import { Redirect, useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  StyleSheet,
+  View,
+} from "react-native";
+
+import { StateView } from "@/src/components/state-view";
+import { ThemedText } from "@/src/components/themed-text";
+import { ThemedView } from "@/src/components/themed-view";
+import { Button } from "@/src/components/ui/button";
+import { useTheme } from "@/src/hooks/use-theme";
+import {
+  authenticateWithBiometrics,
+  getBiometricSupport,
+} from "@/src/lib/biometrics";
+import { useAuth } from "@/src/hooks/use-auth";
+import { authService } from "@/src/servicios/auth.service";
+import { TextField } from "@/src/components/ui/text-field";
+import { vibrarError, vibrarValidacionExitosa } from "@/src/lib/haptics";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { UsoDePromocion } from "@/src/tipos";
+
+export default function ValidarCuponScreen() {
+  const { palette: colors } = useTheme();
+  const router = useRouter();
+  const { usuario, status } = useAuth();
+  const usuarioId = usuario?.id;
+  const rol = usuario?.rol;
+  const [password, setPassword] = useState("");
+  const [errorIdentidad, setErrorIdentidad] = useState<string | null>(null);
+  const [verificando, setVerificando] = useState(true);
+  const leyendo = useRef(false);
+
+  const [permission, requestPermission] = useCameraPermissions();
+  const [autenticadoBio, setAutenticadoBio] = useState(false);
+  const [escaneado, setEscaneado] = useState(false);
+  const [validando, setValidando] = useState(false);
+  const [resultado, setResultado] = useState<UsoDePromocion | null>(null);
+
+  useEffect(() => {
+    async function solicitarBiometria() {
+      if (rol !== "comercio") {
+        setVerificando(false);
+        return;
+      }
+      setAutenticadoBio(false);
+      try {
+        const soporte = await getBiometricSupport();
+        if (!soporte.available) {
+          setVerificando(false);
+          return;
+        }
+        const ok = await authenticateWithBiometrics(
+          "Confirmá tu huella o rostro para habilitar el lector en mostrador",
+        );
+        if (ok) {
+          setAutenticadoBio(true);
+        } else {
+          setErrorIdentidad(
+            "Podés confirmar tu identidad con la contraseña de tu cuenta.",
+          );
+        }
+      } catch {
+        setErrorIdentidad("Usá tu contraseña para habilitar el lector.");
+      } finally {
+        setVerificando(false);
+      }
+    }
+
+    solicitarBiometria();
+  }, [rol, usuarioId]);
+
+  if (status === "loading") return <StateView type="loading" />;
+  if (!usuario) return <Redirect href="/login" />;
+  if (rol !== "comercio")
+    return (
+      <StateView
+        type="error"
+        title="Lector para comercios"
+        message="El cliente muestra su QR. El comercio lo escanea desde su cuenta."
+        actionLabel="Volver"
+        onAction={() => router.back()}
+      />
+    );
+
+  if (!autenticadoBio) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        {verificando ? (
+          <StateView
+            type="loading"
+            message="Validando identidad del comerciante..."
+          />
+        ) : (
+          <View style={{ padding: 24, gap: 16 }}>
+            <ThemedText type="subtitle">Confirmá tu identidad</ThemedText>
+            <ThemedText>
+              Ingresá tu contraseña para habilitar el lector de {usuario.nombre}
+              .
+            </ThemedText>
+            {errorIdentidad && <ThemedText>{errorIdentidad}</ThemedText>}
+            <TextField
+              label="Contraseña"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+            />
+            <Button
+              title="Habilitar lector"
+              loading={verificando}
+              onPress={async () => {
+                setVerificando(true);
+                try {
+                  const ingreso = await authService.login(
+                    usuario.email,
+                    password,
+                  );
+                  if (
+                    ingreso.usuario.id !== usuario.id ||
+                    ingreso.usuario.rol !== "comercio"
+                  )
+                    throw new Error(
+                      "La cuenta no corresponde a este comercio.",
+                    );
+                  setPassword("");
+                  setAutenticadoBio(true);
+                  setErrorIdentidad(null);
+                } catch (e) {
+                  setErrorIdentidad((e as Error).message);
+                } finally {
+                  setVerificando(false);
+                }
+              }}
+            />
+          </View>
+        )}
+      </ThemedView>
+    );
+  }
+
+  if (!permission) {
+    return <StateView type="loading" message="Preparando la cámara..." />;
+  }
+
+  if (!permission.granted) {
+    return (
+      <ThemedView style={styles.centerContainer}>
+        <StateView
+          type="error"
+          title="Permiso de cámara necesario"
+          message="Habilita la cámara para leer el código QR presentado por el cliente."
+          actionLabel="Conceder permiso"
+          onAction={
+            permission.canAskAgain
+              ? requestPermission
+              : () => Linking.openSettings()
+          }
+        />
+      </ThemedView>
+    );
+  }
+
+  async function handleBarCodeScanned({ data }: { data: string }) {
+    if (leyendo.current || escaneado) return;
+    leyendo.current = true;
+    setEscaneado(true);
+    setValidando(true);
+
+    try {
+      const uso = await comerciosService.validarCodigoPromocion(data);
+      await vibrarValidacionExitosa();
+      setResultado(uso);
+    } catch (e) {
+      await vibrarError();
+      Alert.alert("Código inválido", (e as Error).message, [
+        {
+          text: "Reintentar",
+          onPress: () => {
+            leyendo.current = false;
+            setEscaneado(false);
+          },
+        },
+      ]);
+    } finally {
+      setValidando(false);
+    }
+  }
+
+  return (
+    <ThemedView style={styles.flex}>
+      {resultado ? (
+        <View style={styles.resultadoContainer}>
+          <View style={[styles.successIcon, { backgroundColor: "#4caf50" }]}>
+            <Ionicons name="checkmark-sharp" size={48} color="#fff" />
+          </View>
+          <ThemedText type="title">¡Cupón Validado!</ThemedText>
+          <ThemedText style={{ color: colors.muted, textAlign: "center" }}>
+            El beneficio fue registrado exitosamente para el cliente.
+          </ThemedText>
+          <View
+            style={[
+              styles.detailBox,
+              { backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <ThemedText style={{ fontWeight: "bold" }}>Código:</ThemedText>
+            <ThemedText style={{ color: colors.accent }}>
+              {resultado.codigo}
+            </ThemedText>
+            <ThemedText style={{ fontWeight: "bold", marginTop: 8 }}>
+              Validado:
+            </ThemedText>
+            <ThemedText style={{ color: colors.muted }}>
+              {formatearFechaHora(resultado.validadoEn || "")}
+            </ThemedText>
+          </View>
+
+          <Button
+            title="Escanear otro código"
+            onPress={() => {
+              setResultado(null);
+              leyendo.current = false;
+              setEscaneado(false);
+            }}
+          />
+          <Button
+            title="Finalizar"
+            variant="secondary"
+            onPress={() => router.back()}
+          />
+        </View>
+      ) : (
+        <View style={styles.flex}>
+          <CameraView
+            style={styles.flex}
+            facing="back"
+            barcodeScannerSettings={{
+              barcodeTypes: ["qr"],
+            }}
+            onBarcodeScanned={escaneado ? undefined : handleBarCodeScanned}
+          >
+            <View style={styles.overlay}>
+              <View style={styles.targetFrame}>
+                <View style={[styles.corner, styles.tl]} />
+                <View style={[styles.corner, styles.tr]} />
+                <View style={[styles.corner, styles.bl]} />
+                <View style={[styles.corner, styles.br]} />
+              </View>
+              <ThemedText style={styles.hintText}>
+                {validando
+                  ? "Validando cupón..."
+                  : "Alineá el código QR del cliente dentro del marco"}
+              </ThemedText>
+              {validando && <ActivityIndicator color="#fff" size="large" />}
+            </View>
+          </CameraView>
+        </View>
+      )}
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  targetFrame: {
+    width: 250,
+    height: 250,
+    position: "relative",
+  },
+  corner: {
+    position: "absolute",
+    width: 32,
+    height: 32,
+    borderColor: "#fff",
+  },
+  tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4 },
+  tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4 },
+  bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4 },
+  br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4 },
+  hintText: {
+    marginTop: 24,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
+  resultadoContainer: {
+    flex: 1,
+    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
+  },
+  successIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  detailBox: {
+    width: "100%",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 12,
+  },
+});
