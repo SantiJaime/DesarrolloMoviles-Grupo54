@@ -1,15 +1,21 @@
 import * as SQLite from "expo-sqlite";
 import Storage from "expo-sqlite/kv-store";
-import type { Comercio, Rubro } from "@/src/types";
+import type { Comercio, Resena, Rubro } from "@/src/tipos";
 
-let dbInstance: SQLite.SQLiteDatabase | null = null;
+let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (!dbInstance) {
-    dbInstance = await SQLite.openDatabaseAsync("directorio.db");
-    await initDatabase(dbInstance);
+  if (!dbPromise) {
+    dbPromise = (async () => {
+      const db = await SQLite.openDatabaseAsync("directorio.db");
+      await initDatabase(db);
+      return db;
+    })().catch((error) => {
+      dbPromise = null;
+      throw error;
+    });
   }
-  return dbInstance;
+  return dbPromise;
 }
 
 async function initDatabase(db: SQLite.SQLiteDatabase) {
@@ -42,10 +48,21 @@ async function initDatabase(db: SQLite.SQLiteDatabase) {
       color TEXT NOT NULL,
       orden INTEGER NOT NULL
     );
+    CREATE TABLE IF NOT EXISTS recursos_cache (
+      clave TEXT PRIMARY KEY NOT NULL, datos TEXT NOT NULL, actualizadoEn TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS resenas_locales (
+      id TEXT PRIMARY KEY NOT NULL, comercioId TEXT NOT NULL, usuarioId TEXT NOT NULL,
+      sincronizada INTEGER NOT NULL, datos TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS resenas_usuario ON resenas_locales(usuarioId, sincronizada);
+    CREATE TABLE IF NOT EXISTS archivos_cache (url TEXT PRIMARY KEY NOT NULL, uri TEXT NOT NULL);
   `);
 }
 
-export async function guardarComerciosEnDB(comercios: Comercio[]): Promise<void> {
+export async function guardarComerciosEnDB(
+  comercios: Comercio[],
+): Promise<void> {
   const db = await getDatabase();
   for (const c of comercios) {
     await db.runAsync(
@@ -73,14 +90,16 @@ export async function guardarComerciosEnDB(comercios: Comercio[]): Promise<void>
         c.cantidadResenas,
         c.codigoQr,
         c.activo ? 1 : 0,
-      ]
+      ],
     );
   }
 }
 
 export async function obtenerComerciosDeDB(): Promise<Comercio[]> {
   const db = await getDatabase();
-  const rows = await db.getAllAsync<any>("SELECT * FROM comercios WHERE activo = 1 ORDER BY nombre ASC");
+  const rows = await db.getAllAsync<any>(
+    "SELECT * FROM comercios WHERE activo = 1 ORDER BY nombre ASC",
+  );
   return rows.map((r) => ({
     id: r.id,
     nombre: r.nombre,
@@ -105,9 +124,14 @@ export async function obtenerComerciosDeDB(): Promise<Comercio[]> {
   }));
 }
 
-export async function obtenerComercioPorIdDeDB(id: string): Promise<Comercio | null> {
+export async function obtenerComercioPorIdDeDB(
+  id: string,
+): Promise<Comercio | null> {
   const db = await getDatabase();
-  const r = await db.getFirstAsync<any>("SELECT * FROM comercios WHERE id = ?", [id]);
+  const r = await db.getFirstAsync<any>(
+    "SELECT * FROM comercios WHERE id = ?",
+    [id],
+  );
   if (!r) return null;
   return {
     id: r.id,
@@ -138,7 +162,7 @@ export async function guardarRubrosEnDB(rubros: Rubro[]): Promise<void> {
   for (const r of rubros) {
     await db.runAsync(
       "INSERT OR REPLACE INTO rubros (id, nombre, icono, color, orden) VALUES (?, ?, ?, ?, ?)",
-      [r.id, r.nombre, r.icono, r.color, r.orden]
+      [r.id, r.nombre, r.icono, r.color, r.orden],
     );
   }
 }
@@ -158,4 +182,84 @@ export async function getKV(key: string): Promise<string | null> {
 
 export async function removeKV(key: string): Promise<void> {
   await Storage.removeItem(key);
+}
+
+export async function guardarCache<T>(clave: string, datos: T): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    "INSERT OR REPLACE INTO recursos_cache VALUES (?, ?, ?)",
+    clave,
+    JSON.stringify(datos),
+    new Date().toISOString(),
+  );
+}
+
+export async function leerCache<T>(
+  clave: string,
+): Promise<{ datos: T; actualizadoEn: string } | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ datos: string; actualizadoEn: string }>(
+    "SELECT datos, actualizadoEn FROM recursos_cache WHERE clave = ?",
+    clave,
+  );
+  return row
+    ? { datos: JSON.parse(row.datos) as T, actualizadoEn: row.actualizadoEn }
+    : null;
+}
+
+export async function guardarResenaLocal(resena: Resena): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    "INSERT OR REPLACE INTO resenas_locales VALUES (?, ?, ?, ?, ?)",
+    resena.id,
+    resena.comercioId,
+    resena.usuarioId,
+    resena.sincronizada ? 1 : 0,
+    JSON.stringify(resena),
+  );
+}
+
+export async function obtenerResenasLocales(
+  usuarioId: string,
+  comercioId?: string,
+): Promise<Resena[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{ datos: string }>(
+    `SELECT datos FROM resenas_locales WHERE usuarioId = ?${comercioId ? " AND comercioId = ?" : ""}`,
+    comercioId ? [usuarioId, comercioId] : [usuarioId],
+  );
+  return rows.map((row) => JSON.parse(row.datos) as Resena);
+}
+
+export async function borrarResenaLocal(
+  resenaId: string,
+  usuarioId: string,
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    "DELETE FROM resenas_locales WHERE id = ? AND usuarioId = ?",
+    resenaId,
+    usuarioId,
+  );
+}
+
+export async function guardarArchivoCache(
+  url: string,
+  uri: string,
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    "INSERT OR REPLACE INTO archivos_cache VALUES (?, ?)",
+    url,
+    uri,
+  );
+}
+
+export async function leerArchivoCache(url: string): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ uri: string }>(
+    "SELECT uri FROM archivos_cache WHERE url = ?",
+    url,
+  );
+  return row?.uri ?? null;
 }

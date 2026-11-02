@@ -1,5 +1,5 @@
-import type { ApiRespuesta, Rol, Usuario } from "@/src/types";
-import { api } from "@/src/services/api/client";
+import type { ApiRespuesta, Usuario } from "@/src/tipos";
+import { api } from "@/src/servicios/api/client";
 
 export interface AuthResult {
   usuario: Usuario;
@@ -10,10 +10,11 @@ export interface RegisterInput {
   nombre: string;
   email: string;
   password: string;
-  rol?: Rol;
 }
 
-export type CambiosUsuario = Partial<Pick<Usuario, "nombre" | "rubrosDeInteres" | "avisosActivos">>;
+export type CambiosUsuario = Partial<
+  Pick<Usuario, "nombre" | "rubrosDeInteres" | "avisosActivos">
+>;
 
 export const authService = {
   async login(email: string, password: string): Promise<AuthResult> {
@@ -24,12 +25,19 @@ export const authService = {
     return data.datos;
   },
 
-  async register({ nombre, email, password }: RegisterInput): Promise<AuthResult> {
-    const { data } = await api.post<ApiRespuesta<AuthResult>>("/auth/registro", {
-      nombre,
-      email: email.trim(),
-      contrasena: password,
-    });
+  async register({
+    nombre,
+    email,
+    password,
+  }: RegisterInput): Promise<AuthResult> {
+    const { data } = await api.post<ApiRespuesta<AuthResult>>(
+      "/auth/registro",
+      {
+        nombre,
+        email: email.trim(),
+        contrasena: password,
+      },
+    );
     return data.datos;
   },
 
@@ -46,7 +54,9 @@ export const authService = {
   },
 
   async agregarFavorito(comercioId: string): Promise<Usuario> {
-    const { data } = await api.put<ApiRespuesta<Usuario>>(`/yo/favoritos/${encodeURIComponent(comercioId)}`);
+    const { data } = await api.put<ApiRespuesta<Usuario>>(
+      `/yo/favoritos/${encodeURIComponent(comercioId)}`,
+    );
     return data.datos;
   },
 

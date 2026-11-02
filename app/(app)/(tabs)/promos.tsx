@@ -1,6 +1,5 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Modal,
@@ -16,9 +15,12 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useTheme } from "@/src/hooks/use-theme";
-import { avisarPromosNuevasDeFavoritos, programarRecordatorioPromoPorVencer, } from "@/src/lib/notifications";
-import { comerciosService } from "@/src/services/comercios.service";
-import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/types";
+import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
+import { CuponQR } from "@/src/components/cupon-qr";
+import { useNow } from "@/src/hooks/use-now";
+import { esPromocionVigente } from "@/src/lib/promociones";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Comercio, Promocion, Rubro, UsoDePromocion } from "@/src/tipos";
 
 type TabEstado = "vigentes" | "pronto" | "porVencer";
 
@@ -26,6 +28,7 @@ export default function PromosScreen() {
   const { palette: colors } = useTheme();
   const router = useRouter();
   const { usuario } = useAuth();
+  const ahora = useNow();
 
   const [promos, setPromos] = useState<Promocion[]>([]);
   const [comercios, setComercios] = useState<Comercio[]>([]);
@@ -33,10 +36,14 @@ export default function PromosScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
+  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
+    null,
+  );
   const [tabEstado, setTabEstado] = useState<TabEstado>("vigentes");
 
-  const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(null);
+  const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(
+    null,
+  );
   const [usoGenerado, setUsoGenerado] = useState<UsoDePromocion | null>(null);
   const [generandoCodigo, setGenerandoCodigo] = useState(false);
   const [promosUsadas, setPromosUsadas] = useState<string[]>([]);
@@ -57,7 +64,9 @@ export default function PromosScreen() {
       setComercios(resComercios.datos);
       setRubros(resRubros.datos);
       setPromosUsadas(
-        resUsos?.datos.filter((u) => u.validadoEn !== null).map((u) => u.promocionId) ?? []
+        resUsos?.datos
+          .filter((u) => u.validadoEn !== null)
+          .map((u) => u.promocionId) ?? [],
       );
     } catch (e) {
       setError((e as Error).message);
@@ -66,16 +75,12 @@ export default function PromosScreen() {
     }
   }, [usuarioId]);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
-  useEffect(() => {
-    if (!usuario?.avisosActivos || promos.length === 0) return;
-    avisarPromosNuevasDeFavoritos(usuario.favoritos, promos, comercios);
-  }, [usuario?.avisosActivos, usuario?.favoritos, promos, comercios]);
-  
-  const ahora = new Date().getTime();
   const tresDiasMs = 3 * 24 * 60 * 60 * 1000;
 
   const filtradas = promos.filter((p) => {
@@ -83,7 +88,7 @@ export default function PromosScreen() {
     const desdeMs = new Date(p.desde).getTime();
     const hastaMs = new Date(p.hasta).getTime();
 
-    if (hastaMs < ahora) return false;
+    if (hastaMs <= ahora) return false;
 
     if (tabEstado === "vigentes") {
       if (desdeMs > ahora) return false;
@@ -106,6 +111,14 @@ export default function PromosScreen() {
       router.push("/login");
       return;
     }
+    if (!esPromocionVigente(promo)) {
+      Alert.alert(
+        "Promoción no disponible",
+        "Solo podés generar el código mientras la promoción está vigente.",
+      );
+      return;
+    }
+    setUsoGenerado(null);
     setPromoSeleccionada(promo);
     setGenerandoCodigo(true);
     try {
@@ -113,14 +126,44 @@ export default function PromosScreen() {
       setUsoGenerado(nuevoUso);
       if (usuario.avisosActivos) {
         const nombre =
-          comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "el comercio";
-        programarRecordatorioPromoPorVencer(promo, nombre);
+          comercios.find((c) => c.id === promo.comercioId)?.nombre ??
+          "el comercio";
+        await programarRecordatorioPromoPorVencer(promo, nombre);
       }
     } catch (e) {
       setPromoSeleccionada(null);
       Alert.alert(promo.titulo, (e as Error).message);
     } finally {
       setGenerandoCodigo(false);
+    }
+  }
+
+  async function guardarRecordatorio(promo: Promocion) {
+    if (!usuario) {
+      router.push("/login");
+      return;
+    }
+    if (!usuario.avisosActivos) {
+      Alert.alert(
+        "Avisos desactivados",
+        "Activá los avisos desde tu perfil para guardar el recordatorio.",
+      );
+      return;
+    }
+    try {
+      const ok = await programarRecordatorioPromoPorVencer(
+        promo,
+        comercios.find((c) => c.id === promo.comercioId)?.nombre ??
+          "el comercio",
+      );
+      Alert.alert(
+        ok ? "Promoción guardada" : "No se pudo programar",
+        ok
+          ? "Te avisaremos antes de que venza."
+          : "Revisá el permiso de notificaciones y la vigencia de la promoción.",
+      );
+    } catch (e) {
+      Alert.alert("Recordatorio", (e as Error).message);
     }
   }
 
@@ -156,7 +199,10 @@ export default function PromosScreen() {
               onPress={() => setTabEstado(tab)}
               style={[
                 styles.tabBtn,
-                activo && { borderBottomColor: colors.accent, borderBottomWidth: 2 },
+                activo && {
+                  borderBottomColor: colors.accent,
+                  borderBottomWidth: 2,
+                },
               ]}
             >
               <ThemedText
@@ -173,13 +219,18 @@ export default function PromosScreen() {
       </View>
 
       <View style={styles.rubrosRow}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rubrosList}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rubrosList}
+        >
           <Pressable
             onPress={() => setRubroSeleccionado(null)}
             style={[
               styles.chip,
               {
-                backgroundColor: rubroSeleccionado === null ? colors.accent : colors.surface,
+                backgroundColor:
+                  rubroSeleccionado === null ? colors.accent : colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -187,7 +238,10 @@ export default function PromosScreen() {
             <ThemedText
               style={[
                 styles.chipText,
-                { color: rubroSeleccionado === null ? colors.onAccent : colors.text },
+                {
+                  color:
+                    rubroSeleccionado === null ? colors.onAccent : colors.text,
+                },
               ]}
             >
               Todos
@@ -207,7 +261,12 @@ export default function PromosScreen() {
                   },
                 ]}
               >
-                <ThemedText style={[styles.chipText, { color: activo ? colors.onAccent : colors.text }]}>
+                <ThemedText
+                  style={[
+                    styles.chipText,
+                    { color: activo ? colors.onAccent : colors.text },
+                  ]}
+                >
                   {r.nombre}
                 </ThemedText>
               </Pressable>
@@ -222,16 +281,29 @@ export default function PromosScreen() {
             type="empty"
             title="No hay promociones en esta categoría"
             message="Probá seleccionando otro rubro o pestaña."
+            actionLabel="Ver promociones vigentes"
+            onAction={() => {
+              setRubroSeleccionado(null);
+              setTabEstado("vigentes");
+            }}
           />
         ) : (
           filtradas.map((promo) => {
             const com = comercios.find((c) => c.id === promo.comercioId);
-            const fechaHasta = new Date(promo.hasta).toLocaleDateString("es-AR");
+            const fechaHasta = new Date(promo.hasta).toLocaleDateString(
+              "es-AR",
+            );
 
             return (
               <View
                 key={promo.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                style={[
+                  styles.card,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
                 <View style={styles.cardHeader}>
                   <ThemedText type="subtitle" style={styles.flex}>
@@ -251,23 +323,46 @@ export default function PromosScreen() {
                 </ThemedText>
 
                 <ThemedText style={styles.detalle}>{promo.detalle}</ThemedText>
+                <Button
+                  title="Guardar recordatorio"
+                  variant="secondary"
+                  size="small"
+                  icon="notifications-outline"
+                  onPress={() => guardarRecordatorio(promo)}
+                />
 
                 <View style={styles.footerRow}>
-                  <ThemedText style={[styles.usosText, { color: colors.muted }]}>
+                  <ThemedText
+                    style={[styles.usosText, { color: colors.muted }]}
+                  >
                     Usada {promo.usos} veces
                   </ThemedText>
-                  {!promo.soloApp ? (
-                    <ThemedText style={[styles.usosText, { color: colors.muted }]}>
+                  {!esPromocionVigente(promo, ahora) ? (
+                    <ThemedText>
+                      Disponible desde{" "}
+                      {new Date(promo.desde).toLocaleDateString("es-AR")}
+                    </ThemedText>
+                  ) : !promo.soloApp ? (
+                    <ThemedText
+                      style={[styles.usosText, { color: colors.muted }]}
+                    >
                       Se aplica en el local
                     </ThemedText>
                   ) : promosUsadas.includes(promo.id) ? (
-                    <Button title="Ya la usaste" size="small" icon="checkmark" disabled />
+                    <Button
+                      title="Ya la usaste"
+                      size="small"
+                      icon="checkmark"
+                      disabled
+                    />
                   ) : (
                     <Button
                       title="Mostrar mi código"
                       size="small"
                       icon="qr-code"
-                      loading={generandoCodigo && promoSeleccionada?.id === promo.id}
+                      loading={
+                        generandoCodigo && promoSeleccionada?.id === promo.id
+                      }
                       disabled={generandoCodigo}
                       onPress={() => handleMostrarCodigo(promo)}
                     />
@@ -280,7 +375,10 @@ export default function PromosScreen() {
       </ScrollView>
 
       <Modal
-        visible={promoSeleccionada !== null}
+        visible={
+          promoSeleccionada !== null &&
+          esPromocionVigente(promoSeleccionada, ahora)
+        }
         animationType="slide"
         transparent
         onRequestClose={() => {
@@ -289,7 +387,15 @@ export default function PromosScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <ThemedText type="title" style={styles.center}>
               Cupón de Descuento
             </ThemedText>
@@ -297,12 +403,19 @@ export default function PromosScreen() {
               {promoSeleccionada?.titulo}
             </ThemedText>
 
-            <View style={[styles.codeBox, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-              <Ionicons name="qr-code-outline" size={80} color={colors.accent} />
-              <ThemedText type="subtitle" style={[styles.codeText, { color: colors.accent }]}>
-                {usoGenerado ? usoGenerado.codigo : "Generando..."}
-              </ThemedText>
-              <ThemedText style={[styles.small, { color: colors.muted, textAlign: "center" }]}>
+            <View
+              style={[
+                styles.codeBox,
+                { backgroundColor: colors.surface, borderColor: colors.border },
+              ]}
+            >
+              <CuponQR codigo={usoGenerado?.codigo} />
+              <ThemedText
+                style={[
+                  styles.small,
+                  { color: colors.muted, textAlign: "center" },
+                ]}
+              >
                 Presentá este código en el mostrador para aplicar el beneficio.
               </ThemedText>
             </View>

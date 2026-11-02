@@ -1,4 +1,4 @@
-import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ComponentProps } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
@@ -12,7 +12,7 @@ type StateViewProps =
       type: "empty" | "error" | "info";
       title: string;
       message?: string;
-      icon?: ComponentProps<typeof MaterialIcons>["name"];
+      icon?: ComponentProps<typeof Ionicons>["name"];
       actionLabel?: string;
       onAction?: () => void;
     };
@@ -34,14 +34,14 @@ export function StateView(props: StateViewProps) {
   }
 
   const defaultIcon = {
-    empty: "inbox",
-    error: "error-outline",
-    info: "info-outline",
+    empty: "file-tray-outline",
+    error: "alert-circle-outline",
+    info: "information-circle-outline",
   } as const;
 
   return (
     <View style={styles.container}>
-      <MaterialIcons
+      <Ionicons
         name={props.icon ?? defaultIcon[props.type]}
         size={56}
         color={props.type === "error" ? colors.danger : colors.muted}

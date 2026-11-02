@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -16,8 +16,8 @@ import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
 import type { ColorScheme } from "@/src/context/theme-context";
 import { useTheme } from "@/src/hooks/use-theme";
-import { comerciosService } from "@/src/services/comercios.service";
-import type { Rubro } from "@/src/types";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Rubro } from "@/src/tipos";
 
 const THEME_OPTIONS: { value: ColorScheme; label: string }[] = [
   { value: "light", label: "Claro" },
@@ -32,7 +32,6 @@ export default function PerfilScreen() {
     biometric,
     setBiometricEnabled,
     signOut,
-    signIn,
     setRubrosDeInteres,
     setAvisosActivos,
   } = useAuth();
@@ -42,7 +41,10 @@ export default function PerfilScreen() {
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    comerciosService.obtenerRubros().then((res) => setRubros(res.datos));
+    comerciosService
+      .obtenerRubros()
+      .then((res) => setRubros(res.datos))
+      .catch((e) => Alert.alert("Rubros", (e as Error).message));
   }, []);
 
   async function toggleBiometric(enabled: boolean) {
@@ -59,7 +61,11 @@ export default function PerfilScreen() {
 
   async function handleSignOut() {
     setSigningOut(true);
-    await signOut();
+    try {
+      await signOut();
+    } catch (e) {
+      Alert.alert("Sesión", (e as Error).message);
+    }
     setSigningOut(false);
   }
 
@@ -79,14 +85,18 @@ export default function PerfilScreen() {
           <>
             <View style={styles.header}>
               <View style={[styles.avatar, { backgroundColor: colors.accent }]}>
-                <ThemedText style={[styles.avatarText, { color: colors.onAccent }]}>
+                <ThemedText
+                  style={[styles.avatarText, { color: colors.onAccent }]}
+                >
                   {usuario.nombre.charAt(0).toUpperCase()}
                 </ThemedText>
               </View>
               <ThemedText type="subtitle">{usuario.nombre}</ThemedText>
               <ThemedText style={{ color: colors.muted }}>
                 {usuario.email} • Rol:{" "}
-                <ThemedText style={{ fontWeight: "bold", color: colors.accent }}>
+                <ThemedText
+                  style={{ fontWeight: "bold", color: colors.accent }}
+                >
                   {usuario.rol.toUpperCase()}
                 </ThemedText>
               </ThemedText>
@@ -96,12 +106,18 @@ export default function PerfilScreen() {
               <View
                 style={[
                   styles.section,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
-                <ThemedText type="defaultSemiBold">Gestión de tu comercio</ThemedText>
+                <ThemedText type="defaultSemiBold">
+                  Gestión de tu comercio
+                </ThemedText>
                 <ThemedText style={[styles.small, { color: colors.muted }]}>
-                  Accedé a tus herramientas de administración y lector en mostrador.
+                  Accedé a tus herramientas de administración y lector en
+                  mostrador.
                 </ThemedText>
                 <View style={styles.adminButtons}>
                   <Button
@@ -113,25 +129,36 @@ export default function PerfilScreen() {
                     title="Escanear cupón en mostrador"
                     variant="secondary"
                     icon="qr-code"
-                    onPress={() => router.push("/scan")}
+                    onPress={() => router.push("/validar-cupon")}
                   />
                 </View>
               </View>
             )}
 
+            <Button
+              title="Mis cupones e historial"
+              icon="receipt-outline"
+              variant="secondary"
+              onPress={() => router.push("/scan/historial")}
+            />
             {usuario.rol === "vecino" && (
               <>
                 <View
                   style={[
                     styles.section,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
                   <View style={styles.row}>
                     <Ionicons name="heart" size={24} color="#e91e63" />
                     <View style={styles.flex}>
                       <ThemedText type="defaultSemiBold">Favoritos</ThemedText>
-                      <ThemedText style={[styles.small, { color: colors.muted }]}>
+                      <ThemedText
+                        style={[styles.small, { color: colors.muted }]}
+                      >
                         Tenés {usuario.favoritos.length} comercio(s) guardados.
                       </ThemedText>
                     </View>
@@ -141,16 +168,25 @@ export default function PerfilScreen() {
                 <View
                   style={[
                     styles.section,
-                    { backgroundColor: colors.surface, borderColor: colors.border },
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
                   ]}
                 >
                   <View style={styles.row}>
-                    <Ionicons name="notifications" size={24} color={colors.accent} />
+                    <Ionicons
+                      name="notifications"
+                      size={24}
+                      color={colors.accent}
+                    />
                     <View style={styles.flex}>
                       <ThemedText type="defaultSemiBold">
                         Avisos de promociones
                       </ThemedText>
-                      <ThemedText style={[styles.small, { color: colors.muted }]}>
+                      <ThemedText
+                        style={[styles.small, { color: colors.muted }]}
+                      >
                         Recibir alertas de tus favoritos y rubros elegidos.
                       </ThemedText>
                     </View>
@@ -277,8 +313,8 @@ export default function PerfilScreen() {
             </View>
             <ThemedText type="title">Modo Visitante</ThemedText>
             <ThemedText style={[styles.center, { color: colors.muted }]}>
-              Estás navegando la app como invitado. Podés ver todos los comercios,
-              horarios y mapa sin registrarte.
+              Estás navegando la app como invitado. Podés ver todos los
+              comercios, horarios y mapa sin registrarte.
             </ThemedText>
 
             <View style={styles.guestActions}>
@@ -296,26 +332,6 @@ export default function PerfilScreen() {
             </View>
           </View>
         )}
-
-        <View style={[styles.demoSwitch, { borderColor: colors.border }]}>
-          <ThemedText style={[styles.small, { color: colors.muted, textAlign: "center" }]}>
-            Accesos de prueba para defensa oral:
-          </ThemedText>
-          <View style={styles.demoButtons}>
-            <Button
-              title="Entrar como Vecino"
-              variant="secondary"
-              size="small"
-              onPress={() => signIn("marta@mail.com", "demo1234")}
-            />
-            <Button
-              title="Entrar como Comercio"
-              variant="secondary"
-              size="small"
-              onPress={() => signIn("comercio@mail.com", "demo1234")}
-            />
-          </View>
-        </View>
       </ScrollView>
     </ThemedView>
   );

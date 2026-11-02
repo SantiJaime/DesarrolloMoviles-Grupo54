@@ -4,7 +4,8 @@ export interface ApiRespuesta<T> {
     total: number;
     pagina: number;
     porPagina: number;
-  };
+  } | null;
+  cache?: { actualizadoEn: string };
 }
 
 export interface ApiError {

@@ -1,4 +1,4 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -92,7 +92,8 @@ export default function LoginScreen() {
               Directorio Concepción
             </ThemedText>
             <ThemedText style={[styles.center, { color: colors.muted }]}>
-              Centro Comercial, Industrial y de Servicios de Concepción del Uruguay
+              Centro Comercial, Industrial y de Servicios de Concepción del
+              Uruguay
             </ThemedText>
           </View>
 
@@ -130,7 +131,7 @@ export default function LoginScreen() {
               }) => (
                 <TextField
                   label="Email"
-                  placeholder="marta@mail.com"
+                  placeholder="tu@email.com"
                   autoCapitalize="none"
                   autoComplete="email"
                   keyboardType="email-address"
@@ -196,17 +197,9 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
-          <View style={[styles.demoBox, { borderColor: colors.border }]}>
-            <ThemedText style={[styles.hint, { color: colors.muted }]}>
-              Cuentas demo de prueba:
-            </ThemedText>
-            <ThemedText style={[styles.hint, { color: colors.muted }]}>
-              Vecino: marta@mail.com / demo1234
-            </ThemedText>
-            <ThemedText style={[styles.hint, { color: colors.muted }]}>
-              Comercio: comercio@mail.com / demo1234
-            </ThemedText>
-          </View>
+          <ThemedText style={[styles.hint, { color: colors.muted }]}>
+            Las cuentas de comercio las habilita el Centro Comercial.
+          </ThemedText>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

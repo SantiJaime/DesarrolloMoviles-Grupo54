@@ -12,9 +12,9 @@ export default function ScanScreen() {
     <ThemedView style={styles.flex}>
       <StateView
         type="info"
-        icon="qr-code-scanner"
+        icon="scan-outline"
         title="Escáner de promociones"
-        message="Alineá el código QR del comercio dentro del recuadro para canjear tu beneficio."
+        message="Elegí una promoción vigente y mostrá tu código QR. El comercio lo escanea para registrar el canje."
       />
       <View style={styles.actions}>
         <Button

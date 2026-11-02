@@ -11,9 +11,11 @@ export const registerSchema = z
   .object({
     nombre: z.string().trim().min(3, "Ingresá tu nombre completo."),
     email,
-    password: z.string().min(6, "Debe tener al menos 6 caracteres."),
+    password: z
+      .string()
+      .min(8, "Debe tener al menos 8 caracteres.")
+      .max(100, "Debe tener como máximo 100 caracteres."),
     confirm: z.string().min(1, "Repetí tu contraseña."),
-    rol: z.enum(["vecino", "comercio"]),
   })
   .refine((data) => data.password === data.confirm, {
     path: ["confirm"],

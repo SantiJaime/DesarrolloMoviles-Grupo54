@@ -1,6 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 
-import type { Usuario } from "@/src/types";
+import type { Usuario } from "@/src/tipos";
 
 const TOKEN_KEY = "session.token";
 const USER_KEY = "session.user";
@@ -19,7 +19,8 @@ export async function saveSession(
   await SecureStore.setItemAsync(USER_KEY, JSON.stringify(usuario));
 }
 
-export const getStoredToken = async () => await SecureStore.getItemAsync(TOKEN_KEY);
+export const getStoredToken = async () =>
+  await SecureStore.getItemAsync(TOKEN_KEY);
 
 export async function getStoredSession(): Promise<StoredSession | null> {
   const [token, rawUser] = await Promise.all([

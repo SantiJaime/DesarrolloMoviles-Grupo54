@@ -6,7 +6,7 @@ export default function AppLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="comercio/[id]" options={{ title: "Comercio" }} />
       <Stack.Screen
-        name="scan"
+        name="validar-cupon"
         options={{
           title: "Validar Cupón",
           presentation: "modal",

@@ -72,8 +72,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/icon.png",
-          "color": "#0a7ea4"
+          "icon": "./assets/images/android-icon-monochrome.png",
+          "color": "#9184d9"
         }
       ],
       "expo-video"
@@ -81,6 +81,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "52e0282c-65fd-4c7e-ba13-e2f3f9ff7020"
+      }
+    },
+    "owner": "danitesta74"
   }
 }

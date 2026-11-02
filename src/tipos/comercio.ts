@@ -27,4 +27,5 @@ export interface Comercio {
   cantidadResenas: number;
   codigoQr: string | null;
   activo: boolean;
+  cerradoHasta?: string | null;
 }

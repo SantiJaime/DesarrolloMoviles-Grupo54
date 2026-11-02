@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React from "react";
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 
 import { HapticTab } from "@/src/components/haptic-tab";
 import { useTheme } from "@/src/hooks/use-theme";

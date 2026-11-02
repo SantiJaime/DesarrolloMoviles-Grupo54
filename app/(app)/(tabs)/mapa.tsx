@@ -1,12 +1,7 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 
 import { StateView } from "@/src/components/state-view";
@@ -15,12 +10,10 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "@/src/hooks/use-theme";
 import { obtenerEstadoHorario } from "@/src/lib/horarios";
-import {
-  abrirRutaEnMapas,
-  pedirPermisoYUbicacion,
-} from "@/src/lib/location";
-import { comerciosService } from "@/src/services/comercios.service";
-import type { Comercio, Coordenadas, Rubro } from "@/src/types";
+import { abrirRutaEnMapas, pedirPermisoYUbicacion } from "@/src/lib/location";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Comercio, Coordenadas, Rubro } from "@/src/tipos";
+import { useNow } from "@/src/hooks/use-now";
 
 const CENTRO_CDELU: Coordenadas = {
   latitud: -32.484,
@@ -30,15 +23,21 @@ const CENTRO_CDELU: Coordenadas = {
 export default function MapaScreen() {
   const { palette: colors } = useTheme();
   const router = useRouter();
+  const ahora = useNow();
+  const mapa = useRef<MapView>(null);
+  const [cacheFecha, setCacheFecha] = useState<string | null>(null);
 
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [rubros, setRubros] = useState<Rubro[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(null);
+  const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(
+    null,
+  );
   const [permisoDenegado, setPermisoDenegado] = useState(false);
   const [rubroFiltro, setRubroFiltro] = useState<string | null>(null);
-  const [comercioSeleccionado, setComercioSeleccionado] = useState<Comercio | null>(null);
+  const [comercioSeleccionado, setComercioSeleccionado] =
+    useState<Comercio | null>(null);
 
   const cargar = useCallback(async () => {
     setLoading(true);
@@ -50,6 +49,7 @@ export default function MapaScreen() {
       ]);
       setComercios(resCom.datos);
       setRubros(resRubros.datos);
+      setCacheFecha(resCom.cache?.actualizadoEn ?? null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -64,6 +64,15 @@ export default function MapaScreen() {
       else setPermisoDenegado(true);
     });
   }, [cargar]);
+  useEffect(() => {
+    if (ubicacionUsuario)
+      mapa.current?.animateToRegion({
+        latitude: ubicacionUsuario.latitud,
+        longitude: ubicacionUsuario.longitud,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      });
+  }, [ubicacionUsuario]);
 
   const filtrados = rubroFiltro
     ? comercios.filter((c) => c.rubroId === rubroFiltro)
@@ -87,6 +96,15 @@ export default function MapaScreen() {
 
   return (
     <ThemedView style={styles.flex}>
+      {cacheFecha !== null && (
+        <ThemedText style={{ padding: 12 }}>
+          Comercios guardados
+          {cacheFecha
+            ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+            : " en el teléfono"}
+          . Pueden estar desactualizados; el mapa base necesita conexión.
+        </ThemedText>
+      )}
       <View style={styles.filterOverlay}>
         <ScrollView
           horizontal
@@ -98,7 +116,8 @@ export default function MapaScreen() {
             style={[
               styles.chip,
               {
-                backgroundColor: rubroFiltro === null ? colors.accent : colors.surface,
+                backgroundColor:
+                  rubroFiltro === null ? colors.accent : colors.surface,
                 borderColor: colors.border,
               },
             ]}
@@ -144,16 +163,22 @@ export default function MapaScreen() {
         <View style={styles.warningBanner}>
           <Ionicons name="information-circle" size={16} color="#fff" />
           <ThemedText style={styles.warningText}>
-            Ubicación desactivada. Podés explorar los comercios en el mapa manualmente.
+            Ubicación desactivada. Podés explorar los comercios en el mapa
+            manualmente.
           </ThemedText>
         </View>
       )}
 
       <MapView
+        ref={mapa}
         style={styles.map}
         initialRegion={{
-          latitude: ubicacionUsuario ? ubicacionUsuario.latitud : CENTRO_CDELU.latitud,
-          longitude: ubicacionUsuario ? ubicacionUsuario.longitud : CENTRO_CDELU.longitud,
+          latitude: ubicacionUsuario
+            ? ubicacionUsuario.latitud
+            : CENTRO_CDELU.latitud,
+          longitude: ubicacionUsuario
+            ? ubicacionUsuario.longitud
+            : CENTRO_CDELU.longitud,
           latitudeDelta: 0.02,
           longitudeDelta: 0.02,
         }}
@@ -178,6 +203,25 @@ export default function MapaScreen() {
           );
         })}
       </MapView>
+      {filtrados.length === 0 && (
+        <View
+          style={[
+            styles.cardBottom,
+            { backgroundColor: colors.background, minHeight: 180 },
+          ]}
+        >
+          <StateView
+            type="empty"
+            title="No hay comercios para mostrar"
+            message="Probá otro rubro o actualizá el directorio."
+            actionLabel="Ver todos"
+            onAction={() => {
+              setRubroFiltro(null);
+              cargar();
+            }}
+          />
+        </View>
+      )}
 
       {comercioSeleccionado && (
         <View
@@ -200,7 +244,8 @@ export default function MapaScreen() {
                   fontWeight: "600",
                   color: obtenerEstadoHorario(
                     comercioSeleccionado.horarios,
-                    comercioSeleccionado.activo
+                    comercioSeleccionado.activo,
+                    new Date(ahora),
                   ).abierto
                     ? "#2e7d32"
                     : "#c62828",
@@ -209,12 +254,16 @@ export default function MapaScreen() {
                 {
                   obtenerEstadoHorario(
                     comercioSeleccionado.horarios,
-                    comercioSeleccionado.activo
+                    comercioSeleccionado.activo,
+                    new Date(ahora),
                   ).texto
                 }
               </ThemedText>
             </View>
-            <Pressable onPress={() => setComercioSeleccionado(null)} hitSlop={10}>
+            <Pressable
+              onPress={() => setComercioSeleccionado(null)}
+              hitSlop={10}
+            >
               <Ionicons name="close" size={22} color={colors.muted} />
             </Pressable>
           </View>
@@ -228,7 +277,7 @@ export default function MapaScreen() {
               onPress={() =>
                 abrirRutaEnMapas(
                   comercioSeleccionado.coordenadas,
-                  comercioSeleccionado.nombre
+                  comercioSeleccionado.nombre,
                 )
               }
             />

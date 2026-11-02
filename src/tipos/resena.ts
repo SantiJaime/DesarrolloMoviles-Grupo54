@@ -10,4 +10,6 @@ export interface Resena {
   sincronizada: boolean;
   fotoUrl?: string | null;
   usuarioNombre?: string;
+  errorSincronizacion?: string | null;
+  pendienteBorrado?: boolean;
 }

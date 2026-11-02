@@ -42,3 +42,11 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Verificación y artefactos locales
+/tmp/
+/coverage/
+*.apk
+*.aab
+
+/output/

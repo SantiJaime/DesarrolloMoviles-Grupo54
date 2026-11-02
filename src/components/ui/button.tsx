@@ -69,10 +69,15 @@ export function Button({
       {...rest}
     >
       {loading ? (
-        <ActivityIndicator color={foreground} size={isSmall ? "small" : undefined} />
+        <ActivityIndicator
+          color={foreground}
+          size={isSmall ? "small" : undefined}
+        />
       ) : (
         <View style={styles.content}>
-          {icon && <AppIcon name={icon} size={isSmall ? 16 : 20} color={foreground} />}
+          {icon && (
+            <AppIcon name={icon} size={isSmall ? 16 : 20} color={foreground} />
+          )}
           <Text
             style={[
               styles.label,
