@@ -5,7 +5,6 @@ import { ThemedText } from "@/src/components/themed-text";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "@/src/hooks/use-theme";
 
-// Una URL de la API puede apuntar a un archivo retirado; la ficha debe seguir siendo usable.
 export function Image(props: ImageProps) {
   const { palette } = useTheme();
   const [fallida, setFallida] = useState<string | null>(null);

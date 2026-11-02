@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Image } from "@/src/components/imagen";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import * as ImagePicker from "expo-image-picker";
 import {
   Stack,
@@ -329,7 +330,7 @@ export default function ComercioDetailScreen() {
           <ThemedText style={{ padding: 16 }}>
             Ficha guardada
             {cacheFecha
-              ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+              ? ` el ${formatearFechaHora(cacheFecha)}`
               : " en el teléfono"}
             . Los datos pueden estar desactualizados.
           </ThemedText>
@@ -341,6 +342,13 @@ export default function ComercioDetailScreen() {
           loading={descargando}
           disabled={!isOnline}
           onPress={async () => {
+            if (!comercio.videoUrl && !comercio.imagenes?.length) {
+              Alert.alert(
+                "Sin multimedia",
+                "Este comercio todavía no tiene fotos ni video para guardar.",
+              );
+              return;
+            }
             setDescargando(true);
             try {
               setComercio(await guardarFichaSinConexion(comercio));
@@ -500,7 +508,9 @@ export default function ComercioDetailScreen() {
 
         {promos.some((p) => esPromocionVigente(p, ahora)) && (
           <View style={styles.section}>
-            <ThemedText type="subtitle">Promociones vigentes</ThemedText>
+            <ThemedText type="subtitle" style={styles.sectionPad}>
+              Promociones vigentes
+            </ThemedText>
             {promos
               .filter((p) => esPromocionVigente(p, ahora))
               .map((promo) => (
@@ -554,7 +564,7 @@ export default function ComercioDetailScreen() {
         )}
 
         <View style={styles.section}>
-          <View style={styles.rowBetween}>
+          <View style={[styles.rowBetween, styles.sectionPad]}>
             <ThemedText type="subtitle">Reseñas</ThemedText>
             <Button
               title={
@@ -590,7 +600,7 @@ export default function ComercioDetailScreen() {
           </View>
 
           {resenas.length === 0 ? (
-            <ThemedText style={{ color: colors.muted }}>
+            <ThemedText style={[styles.sectionPad, { color: colors.muted }]}>
               Sé el primero en opinar sobre este local.
             </ThemedText>
           ) : (
@@ -916,6 +926,9 @@ const styles = StyleSheet.create({
   },
   section: {
     gap: 12,
+  },
+  sectionPad: {
+    paddingHorizontal: 16,
   },
   rowBetween: {
     flexDirection: "row",

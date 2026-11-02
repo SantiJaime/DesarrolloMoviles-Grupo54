@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { Redirect, useFocusEffect } from "expo-router";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import { ScrollView, View } from "react-native";
 import { StateView } from "@/src/components/state-view";
 import { ThemedText } from "@/src/components/themed-text";
@@ -84,7 +85,7 @@ export default function HistorialScreen() {
               </ThemedText>
               <ThemedText>
                 {u.validadoEn
-                  ? `Canjeado el ${new Date(u.validadoEn).toLocaleString("es-AR")}`
+                  ? `Canjeado el ${formatearFechaHora(u.validadoEn)}`
                   : "Sin canjear"}
               </ThemedText>
               {!u.validadoEn && promo && esPromocionVigente(promo, ahora) ? (

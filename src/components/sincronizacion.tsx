@@ -57,7 +57,6 @@ export function Sincronizacion() {
             await avisarPromosNuevas(usuario, promos.datos, comercios.datos);
         }
       } catch {
-        /* Se reintenta al recuperar red o volver al primer plano. */
       } finally {
         trabajando = false;
       }

@@ -57,7 +57,6 @@ export default function PromosScreen() {
         comerciosService.obtenerPromociones(),
         comerciosService.obtenerComercios(),
         comerciosService.obtenerRubros(),
-        // Sin sesión no hay usos; si falla, se listan igual las promos.
         usuarioId ? comerciosService.obtenerMisUsos().catch(() => null) : null,
       ]);
       setPromos(resPromos.datos);
@@ -483,8 +482,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: 8,
   },
   descuentoBadge: {
+    flexShrink: 0,
     backgroundColor: "#d32f2f",
     paddingHorizontal: 8,
     paddingVertical: 4,

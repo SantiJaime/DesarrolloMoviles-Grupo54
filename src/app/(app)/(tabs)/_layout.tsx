@@ -10,6 +10,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
+      backBehavior="history"
       screenOptions={{
         tabBarActiveTintColor: activeColor,
         tabBarButton: HapticTab,
@@ -76,6 +77,7 @@ export default function TabLayout() {
         name="scan"
         options={{
           href: null,
+          headerShown: false,
         }}
       />
     </Tabs>

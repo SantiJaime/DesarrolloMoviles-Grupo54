@@ -16,7 +16,10 @@ export async function pedirPermisoYUbicacion(): Promise<Coordenadas | null> {
       longitud: loc.coords.longitude,
     };
   } catch {
-    return null;
+    const ultima = await Location.getLastKnownPositionAsync().catch(() => null);
+    return ultima
+      ? { latitud: ultima.coords.latitude, longitud: ultima.coords.longitude }
+      : null;
   }
 }
 

@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { CameraView, useCameraPermissions } from "expo-camera";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import { Redirect, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -218,7 +219,7 @@ export default function ValidarCuponScreen() {
               Validado:
             </ThemedText>
             <ThemedText style={{ color: colors.muted }}>
-              {new Date(resultado.validadoEn || "").toLocaleString("es-AR")}
+              {formatearFechaHora(resultado.validadoEn || "")}
             </ThemedText>
           </View>
 

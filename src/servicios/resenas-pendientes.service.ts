@@ -67,7 +67,6 @@ export const resenasPendientesService = {
             Number(Boolean(a.pendienteBorrado)),
         );
       for (const resena of pendientes) {
-        // La API acepta un id del teléfono: el reintento después de un corte no duplica.
         if ((await getStoredSession())?.usuario.id !== sesion.usuario.id) break;
         try {
           const headers = { Authorization: `Bearer ${sesion.token}` };
@@ -92,8 +91,6 @@ export const resenasPendientesService = {
             },
             { headers },
           );
-          // Un POST repetido puede devolver la versión anterior si se perdió la respuesta.
-          // Aplicamos la edición local antes de dar la sincronización por terminada.
           let publicada = data.datos;
           if (
             publicada.comentario !== resena.comentario ||
@@ -181,7 +178,6 @@ export const resenasPendientesService = {
       await api.delete(`/resenas/${encodeURIComponent(resena.id)}`);
       await borrarResenaLocal(resena.id, sesion.usuario.id);
     } else {
-      // No sabemos si un POST sin respuesta alcanzó al servidor. Conservamos la baja hasta confirmarla.
       await guardarResenaLocal({
         ...resena,
         pendienteBorrado: true,

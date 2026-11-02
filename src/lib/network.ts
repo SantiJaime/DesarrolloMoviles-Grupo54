@@ -28,6 +28,7 @@ export function useNetworkStatus() {
     }
 
     check();
+    const timer = setInterval(check, 5000);
     const subscription = Network.addNetworkStateListener((state) => {
       if (isMounted)
         setIsOnline(
@@ -37,6 +38,7 @@ export function useNetworkStatus() {
 
     return () => {
       isMounted = false;
+      clearInterval(timer);
       subscription.remove();
     };
   }, []);
