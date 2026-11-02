@@ -14,6 +14,7 @@ import { ThemeProvider } from "@/src/context/theme-context";
 import { useTheme } from "@/src/hooks/use-theme";
 import { getDatabase } from "@/src/lib/db";
 import { configurarNotificaciones } from "@/src/lib/notifications";
+import { Sincronizacion } from "@/src/components/sincronizacion";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,6 +45,7 @@ function RootNavigator() {
     <NavigationThemeProvider
       value={theme === "dark" ? DarkTheme : DefaultTheme}
     >
+      <Sincronizacion />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(app)" />
         <Stack.Screen name="(auth)" />

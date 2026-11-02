@@ -1,9 +1,9 @@
 import {
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
-    type TextInputProps,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
 } from "react-native";
 
 import { useTheme } from "@/src/hooks/use-theme";

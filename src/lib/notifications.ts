@@ -1,7 +1,12 @@
 import { getKV, setKV } from "@/src/lib/db";
-import type { Comercio, Promocion } from "@/src/types";
+import { getStoredSession } from "@/src/lib/secure-session";
+import { esPromocionVigente } from "@/src/lib/promociones";
+import { api } from "@/src/servicios/api/client";
+import type { ApiRespuesta, Comercio, Promocion, Usuario } from "@/src/tipos";
 import * as Notifications from "expo-notifications";
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { Platform } from "react-native";
+import { isAxiosError } from "axios";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -15,106 +20,186 @@ Notifications.setNotificationHandler({
 });
 
 export async function configurarNotificaciones(): Promise<boolean> {
-  if (Platform.OS === "android") {
+  if (Platform.OS === "web") return false;
+  if (Platform.OS === "android")
     await Notifications.setNotificationChannelAsync("default", {
-      name: "default",
-      importance: Notifications.AndroidImportance.MAX,
+      name: "Promociones",
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
-      lightColor: "#0a7ea4",
+      lightColor: "#9184d9",
     });
-  }
-
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
-  let finalStatus = existingStatus;
-  if (existingStatus !== "granted") {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-  return finalStatus === "granted";
+  const actual = await Notifications.getPermissionsAsync();
+  return (
+    actual.granted || (await Notifications.requestPermissionsAsync()).granted
+  );
 }
 
-export async function notificarPromoNuevaDeFavorito(
-  comercioNombre: string,
-  promo: Promocion
+export function seleccionarPromosParaAvisar(
+  usuario: Usuario,
+  promos: Promocion[],
+  comercios: Comercio[],
+  avisadas: string[],
 ) {
-  try {
+  return promos.filter(
+    (p) =>
+      esPromocionVigente(p) &&
+      !avisadas.includes(p.id) &&
+      (usuario.favoritos.includes(p.comercioId) ||
+        usuario.rubrosDeInteres.includes(
+          comercios.find((c) => c.id === p.comercioId)?.rubroId ?? "",
+        )),
+  );
+}
+
+export async function avisarPromosNuevas(
+  usuario: Usuario,
+  promos: Promocion[],
+  comercios: Comercio[],
+) {
+  if (
+    !usuario.avisosActivos ||
+    !(await Notifications.getPermissionsAsync()).granted
+  )
+    return;
+  const clave = `promos_avisadas:${usuario.id}`;
+  const guardado = await getKV(clave);
+  const avisadas: string[] = guardado ? JSON.parse(guardado) : [];
+  const vigentes = promos.filter((p) => esPromocionVigente(p));
+  if (guardado === null) {
+    await setKV(clave, JSON.stringify(vigentes.map((p) => p.id)));
+    return;
+  }
+  const nuevas = seleccionarPromosParaAvisar(
+    usuario,
+    vigentes,
+    comercios,
+    avisadas,
+  );
+  for (const promo of nuevas) {
+    const actual = await getStoredSession();
+    if (actual?.usuario.id !== usuario.id || !actual.usuario.avisosActivos)
+      return;
     await Notifications.scheduleNotificationAsync({
+      identifier: `nueva:${usuario.id}:${promo.id}`,
       content: {
-        title: `Nueva promoción en ${comercioNombre}`,
+        title: `Nueva promoción en ${comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "un comercio"}`,
         body: `${promo.titulo}: ${promo.detalle}`,
-        data: { promoId: promo.id, comercioId: promo.comercioId },
+        data: { comercioId: promo.comercioId },
       },
       trigger: null,
     });
-  } catch { }
-}
-
-export async function avisarPromosNuevasDeFavoritos(
-  favoritos: string[],
-  promos: Promocion[],
-  comercios: Comercio[]
-) {
-  try {
-    const guardado = await getKV("promos_avisadas");
-    const yaAvisadas: string[] = guardado ? JSON.parse(guardado) : [];
-    const ahora = Date.now();
-    const vigentes = promos.filter(
-      (p) =>
-        p.activa &&
-        new Date(p.desde).getTime() <= ahora &&
-        new Date(p.hasta).getTime() > ahora
-    );
-    const nuevas = vigentes.filter(
-      (p) => favoritos.includes(p.comercioId) && !yaAvisadas.includes(p.id)
-    );
-    await setKV("promos_avisadas", JSON.stringify(vigentes.map((p) => p.id)));
-    if (guardado === null) return;
-    for (const promo of nuevas) {
-      const nombre =
-        comercios.find((c) => c.id === promo.comercioId)?.nombre ?? "un comercio";
-      await notificarPromoNuevaDeFavorito(nombre, promo);
-    }
-  } catch { }
-}
-
-export async function programarRecordatorioPromoPorVencer(
-  promo: Promocion,
-  comercioNombre: string
-) {
-  try {
-    const hasta = new Date(promo.hasta).getTime();
-    const ahora = Date.now();
-    if (hasta <= ahora) return;
-
-    const avisarEn = hasta - 24 * 60 * 60 * 1000;
-
-    const trigger: Notifications.NotificationTriggerInput =
-      avisarEn > ahora
-        ? {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: new Date(avisarEn),
-        }
-        : {
-          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
-          seconds: 10,
-        };
-
-    await Notifications.scheduleNotificationAsync({
-      identifier: `promo-vence-${promo.id}`,
-      content: {
-        title: "¡Tu promoción guardada está por vencer!",
-        body: `No te olvides de aprovechar "${promo.titulo}" en ${comercioNombre}.`,
-        data: { promoId: promo.id },
-      },
-      trigger,
-    });
-  } catch (e) {
-    console.log("Error al programar notificación:", e);
+    avisadas.push(promo.id);
+    await setKV(clave, JSON.stringify(avisadas));
   }
 }
 
+type Guardada = { promo: Promocion; comercioNombre: string };
+export async function programarRecordatorioPromoPorVencer(
+  promo: Promocion,
+  comercioNombre: string,
+  guardar = true,
+) {
+  const sesion = await getStoredSession();
+  if (!sesion || !sesion.usuario.avisosActivos) return false;
+  const hasta = Date.parse(promo.hasta);
+  if (!promo.activa || hasta <= Date.now()) return false;
+  if (!(await configurarNotificaciones())) return false;
+  const clave = `promos_guardadas:${sesion.usuario.id}`;
+  if (guardar) {
+    const anteriores: Guardada[] = JSON.parse((await getKV(clave)) ?? "[]");
+    await setKV(
+      clave,
+      JSON.stringify([
+        ...anteriores.filter((p) => p.promo.id !== promo.id),
+        { promo, comercioNombre },
+      ]),
+    );
+  }
+  const cuando = Math.max(Date.now() + 1000, hasta - 24 * 60 * 60 * 1000);
+  if (cuando >= hasta) return false;
+  await Notifications.scheduleNotificationAsync({
+    identifier: `vence:${sesion.usuario.id}:${promo.id}`,
+    content: {
+      title: "Tu promoción guardada está por vencer",
+      body: `Aprovechá "${promo.titulo}" en ${comercioNombre}.`,
+      data: { comercioId: promo.comercioId },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: new Date(cuando),
+    },
+  });
+  return true;
+}
+
+export async function restaurarRecordatorios(usuarioId: string) {
+  const clave = `promos_guardadas:${usuarioId}`;
+  const original = (await getKV(clave)) ?? "[]";
+  const guardadas: Guardada[] = JSON.parse(original);
+  const conservar: Guardada[] = [];
+  for (const g of guardadas) {
+    if ((await getStoredSession())?.usuario.id !== usuarioId) return;
+    try {
+      const { data } = await api.get<ApiRespuesta<Promocion>>(
+        `/promociones/${encodeURIComponent(g.promo.id)}`,
+      );
+      g.promo = data.datos;
+    } catch (e) {
+      if (isAxiosError(e) && [404, 410].includes(e.response?.status ?? 0)) {
+        await Notifications.cancelScheduledNotificationAsync(
+          `vence:${usuarioId}:${g.promo.id}`,
+        );
+        continue;
+      }
+    }
+    if (!g.promo.activa || Date.parse(g.promo.hasta) <= Date.now()) {
+      await Notifications.cancelScheduledNotificationAsync(
+        `vence:${usuarioId}:${g.promo.id}`,
+      );
+      continue;
+    }
+    conservar.push(g);
+    if (Date.parse(g.promo.hasta) - 24 * 60 * 60 * 1000 > Date.now())
+      await programarRecordatorioPromoPorVencer(
+        g.promo,
+        g.comercioNombre,
+        false,
+      );
+  }
+  if (((await getKV(clave)) ?? "[]") === original)
+    await setKV(clave, JSON.stringify(conservar));
+}
+
 export async function cancelarTodasLasNotificaciones() {
-  try {
+  if (Platform.OS !== "web") {
     await Notifications.cancelAllScheduledNotificationsAsync();
-  } catch { }
+    await Notifications.dismissAllNotificationsAsync();
+  }
+}
+
+export async function registrarAvisosRemotos(): Promise<boolean> {
+  const projectId =
+    Constants.easConfig?.projectId ??
+    Constants.expoConfig?.extra?.eas?.projectId;
+  if (
+    !projectId ||
+    Platform.OS === "web" ||
+    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+  )
+    return false;
+  if (!(await configurarNotificaciones())) return false;
+  const { data: tokenExpo } = await Notifications.getExpoPushTokenAsync({
+    projectId,
+  });
+  await api.post("/dispositivos", { tokenExpo, plataforma: Platform.OS });
+  await setKV("dispositivo_push", tokenExpo);
+  return true;
+}
+
+export async function quitarAvisosRemotos() {
+  const token = await getKV("dispositivo_push");
+  if (token)
+    await api
+      .delete(`/dispositivos/${encodeURIComponent(token)}`)
+      .catch(() => {});
 }

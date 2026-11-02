@@ -1,4 +1,4 @@
-import type { Horario } from "@/src/types";
+import type { Horario } from "@/src/tipos";
 
 export interface EstadoHorario {
   abierto: boolean;
@@ -8,7 +8,7 @@ export interface EstadoHorario {
 export function estaAbiertoAhora(
   horarios: Horario[],
   activo: boolean = true,
-  fecha: Date = new Date()
+  fecha: Date = new Date(),
 ): boolean {
   return obtenerEstadoHorario(horarios, activo, fecha).abierto;
 }
@@ -16,7 +16,7 @@ export function estaAbiertoAhora(
 export function obtenerEstadoHorario(
   horarios: Horario[],
   activo: boolean = true,
-  fecha: Date = new Date()
+  fecha: Date = new Date(),
 ): EstadoHorario {
   if (!activo) {
     return { abierto: false, texto: "Cerrado temporalmente" };
@@ -35,6 +35,18 @@ export function obtenerEstadoHorario(
   };
 
   const tramosHoy = horarios.filter((h) => h.dia === diaActual);
+  const diaAnterior = (diaActual + 6) % 7;
+  const nocturnoAnterior = horarios.find(
+    (h) =>
+      h.dia === diaAnterior &&
+      parsearMinutos(h.cierra) <= parsearMinutos(h.abre) &&
+      minutosActuales < parsearMinutos(h.cierra),
+  );
+  if (nocturnoAnterior)
+    return {
+      abierto: true,
+      texto: `Abierto - Cierra ${nocturnoAnterior.cierra}`,
+    };
 
   for (const tramo of tramosHoy) {
     const abre = parsearMinutos(tramo.abre);
@@ -45,7 +57,7 @@ export function obtenerEstadoHorario(
         return { abierto: true, texto: `Abierto - Cierra ${tramo.cierra}` };
       }
     } else {
-      if (minutosActuales >= abre || minutosActuales < cierra) {
+      if (minutosActuales >= abre) {
         return { abierto: true, texto: `Abierto - Cierra ${tramo.cierra}` };
       }
     }
@@ -63,7 +75,15 @@ export function obtenerEstadoHorario(
 }
 
 export function formatearHorariosCompletos(horarios: Horario[]): string[] {
-  const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const diasSemana = [
+    "Domingo",
+    "Lunes",
+    "Martes",
+    "Miércoles",
+    "Jueves",
+    "Viernes",
+    "Sábado",
+  ];
   const agrupados: { [key: number]: string[] } = {};
 
   for (const h of horarios) {

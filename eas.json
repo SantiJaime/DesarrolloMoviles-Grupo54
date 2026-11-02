@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 14.0.0"
+    "version": ">= 14.0.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -9,9 +10,14 @@
     },
     "preview": {
       "distribution": "internal",
+      "environment": "preview",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-dm-five.vercel.app"
+      },
       "android": {
         "buildType": "apk"
-      }
+      },
+      "node": "22.14.0"
     },
     "production": {
       "autoIncrement": true

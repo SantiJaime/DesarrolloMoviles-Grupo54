@@ -1,16 +1,16 @@
 import { AxiosError, create } from "axios";
 
 import { getStoredToken } from "@/src/lib/secure-session";
-import type { ApiError } from "@/src/types";
+import type { ApiError } from "@/src/tipos";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000";
+export const API_URL =
+  process.env.EXPO_PUBLIC_API_URL || "https://api-dm-five.vercel.app";
 
 export const api = create({
   baseURL: API_URL,
-  timeout: 60_000,
+  timeout: 15_000,
   headers: { Accept: "application/json" },
 });
-
 
 api.interceptors.request.use(async (config) => {
   if (!config.headers.Authorization) {
@@ -27,7 +27,8 @@ api.interceptors.response.use(
     if (cuerpo) {
       error.message = cuerpo.mensaje;
     } else if (!error.response) {
-      error.message = "No pudimos conectarnos con el servidor. Revisá tu conexión e intentá de nuevo.";
+      error.message =
+        "No pudimos conectarnos con el servidor. Revisá tu conexión e intentá de nuevo.";
     } else {
       error.message = "Ocurrió un error inesperado. Intentá de nuevo.";
     }

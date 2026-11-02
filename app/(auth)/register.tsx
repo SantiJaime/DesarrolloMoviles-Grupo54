@@ -17,7 +17,6 @@ import { TextField } from "@/src/components/ui/text-field";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useTheme } from "@/src/hooks/use-theme";
 import { registerSchema, type RegisterForm } from "@/src/schemas/auth.schema";
-import type { Rol } from "@/src/types";
 
 export default function RegisterScreen() {
   const { palette: colors } = useTheme();
@@ -28,8 +27,6 @@ export default function RegisterScreen() {
     control,
     handleSubmit,
     setError,
-    watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
@@ -38,15 +35,12 @@ export default function RegisterScreen() {
       email: "",
       password: "",
       confirm: "",
-      rol: "vecino",
     },
   });
 
-  const rolActual = watch("rol");
-
-  const handleRegister = handleSubmit(async ({ nombre, email, password, rol }) => {
+  const handleRegister = handleSubmit(async ({ nombre, email, password }) => {
     try {
-      await signUp({ nombre, email, password, rol });
+      await signUp({ nombre, email, password });
       router.replace("/");
     } catch (e) {
       setError("root", { message: (e as Error).message });
@@ -65,40 +59,14 @@ export default function RegisterScreen() {
         >
           <ThemedText type="title">Creá tu cuenta</ThemedText>
           <ThemedText style={{ color: colors.muted }}>
-            Accedé a promociones exclusivas, guardá tus comercios favoritos y opiná.
+            Accedé a promociones exclusivas, guardá tus comercios favoritos y
+            opiná.
           </ThemedText>
 
-          <View style={styles.rolSelector}>
-            <ThemedText style={{ fontWeight: "600" }}>Tipo de cuenta:</ThemedText>
-            <View style={styles.rolButtons}>
-              {(["vecino", "comercio"] as Rol[]).map((r) => {
-                const activo = rolActual === r;
-                return (
-                  <Pressable
-                    key={r}
-                    onPress={() => setValue("rol", r)}
-                    style={[
-                      styles.rolBtn,
-                      {
-                        backgroundColor: activo ? colors.accent : colors.surface,
-                        borderColor: colors.border,
-                      },
-                    ]}
-                  >
-                    <ThemedText
-                      style={{
-                        color: activo ? colors.onAccent : colors.text,
-                        fontWeight: "600",
-                        fontSize: 13,
-                      }}
-                    >
-                      {r === "vecino" ? "Soy vecino" : "Tengo un comercio"}
-                    </ThemedText>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
+          <ThemedText>
+            El registro crea una cuenta de vecino. El Centro Comercial habilita
+            las cuentas de los comercios asociados.
+          </ThemedText>
 
           <View style={styles.form}>
             <Controller

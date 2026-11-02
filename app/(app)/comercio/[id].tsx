@@ -1,8 +1,13 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { Image } from "@/src/components/imagen";
 import * as ImagePicker from "expo-image-picker";
-import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Stack,
+  useLocalSearchParams,
+  useRouter,
+  useFocusEffect,
+} from "expo-router";
+import { useCallback, useState } from "react";
 import {
   Alert,
   Linking,
@@ -21,21 +26,36 @@ import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useAuth } from "@/src/hooks/use-auth";
 import { useTheme } from "@/src/hooks/use-theme";
-import { guardarFotoEnAlmacenamiento } from "@/src/lib/file-cache";
+import {
+  guardarFotoEnAlmacenamiento,
+  guardarFichaSinConexion,
+} from "@/src/lib/file-cache";
+import { useNetworkStatus } from "@/src/lib/network";
+import { resenasPendientesService } from "@/src/servicios/resenas-pendientes.service";
+import { CuponQR } from "@/src/components/cupon-qr";
+import { useNow } from "@/src/hooks/use-now";
+import { esPromocionVigente } from "@/src/lib/promociones";
 import {
   formatearHorariosCompletos,
   obtenerEstadoHorario,
 } from "@/src/lib/horarios";
 import { abrirRutaEnMapas } from "@/src/lib/location";
 import { programarRecordatorioPromoPorVencer } from "@/src/lib/notifications";
-import { comerciosService } from "@/src/services/comercios.service";
-import type { Comercio, Promocion, Resena, UsoDePromocion } from "@/src/types";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Comercio, Promocion, Resena, UsoDePromocion } from "@/src/tipos";
 
 export default function ComercioDetailScreen() {
   const { palette: colors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { usuario, esFavorito, toggleFavorito } = useAuth();
+  const { isOnline } = useNetworkStatus();
+  const ahora = useNow();
+  const usuarioId = usuario?.id;
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [cacheFecha, setCacheFecha] = useState<string | null>(null);
+  const [descargando, setDescargando] = useState(false);
+  const [generandoCodigo, setGenerandoCodigo] = useState(false);
 
   const [comercio, setComercio] = useState<Comercio | null>(null);
   const [promos, setPromos] = useState<Promocion[]>([]);
@@ -48,32 +68,58 @@ export default function ComercioDetailScreen() {
   const [comentarioNuevo, setComentarioNuevo] = useState("");
   const [fotoUri, setFotoUri] = useState<string | null>(null);
   const [guardandoResena, setGuardandoResena] = useState(false);
-    const [resenaEditandoId, setResenaEditandoId] = useState<string | null>(null);
+  const [resenaEditandoId, setResenaEditandoId] = useState<string | null>(null);
 
-  const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(null);
+  const [promoSeleccionada, setPromoSeleccionada] = useState<Promocion | null>(
+    null,
+  );
   const [usoGenerado, setUsoGenerado] = useState<UsoDePromocion | null>(null);
 
   const cargar = useCallback(async () => {
+    setLoading(true);
     setError(null);
+    setAviso(null);
     try {
+      if (isOnline) await resenasPendientesService.sincronizar();
       const [resCom, resProm, resRes] = await Promise.all([
         comerciosService.obtenerComercioPorId(id),
-        comerciosService.obtenerPromociones({ comercioId: id }),
-        comerciosService.obtenerResenas(id),
+        comerciosService
+          .obtenerPromociones({ comercioId: id, estado: "vigentes" })
+          .catch(() => {
+            setAviso(
+              "Promociones y reseñas publicadas necesitan conexión. Podés consultar la ficha y guardar una opinión pendiente.",
+            );
+            return { datos: [] as Promocion[] };
+          }),
+        comerciosService.obtenerResenas(id).catch(() => {
+          setAviso(
+            "Promociones y reseñas publicadas necesitan conexión. Podés consultar la ficha y guardar una opinión pendiente.",
+          );
+          return { datos: [] as Resena[] };
+        }),
       ]);
       setComercio(resCom.datos);
       setPromos(resProm.datos);
-      setResenas(resRes.datos);
+      setResenas(
+        await resenasPendientesService.combinar(
+          id,
+          resRes.datos,
+          usuarioId ?? null,
+        ),
+      );
+      setCacheFecha(resCom.cache?.actualizadoEn ?? null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, usuarioId, isOnline]);
 
-  useEffect(() => {
-    cargar();
-  }, [cargar]);
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar]),
+  );
 
   if (loading) return <StateView type="loading" />;
   if (error || !comercio) {
@@ -88,7 +134,11 @@ export default function ComercioDetailScreen() {
     );
   }
 
-  const estado = obtenerEstadoHorario(comercio.horarios, comercio.activo);
+  const estado = obtenerEstadoHorario(
+    comercio.horarios,
+    comercio.activo,
+    new Date(ahora),
+  );
   const horariosCompletos = formatearHorariosCompletos(comercio.horarios);
   const favorito = esFavorito(comercio.id);
 
@@ -100,20 +150,30 @@ export default function ComercioDetailScreen() {
     await toggleFavorito(comercio!.id);
   }
 
-  async function tomarOSeleccionarFoto() {
-    const perm = await ImagePicker.requestCameraPermissionsAsync();
+  async function tomarOSeleccionarFoto(galeria = false) {
+    const perm = galeria
+      ? await ImagePicker.requestMediaLibraryPermissionsAsync()
+      : await ImagePicker.requestCameraPermissionsAsync();
     if (!perm.granted) {
-      Alert.alert("Permiso necesario", "Se necesita permiso de cámara para sacar fotos.");
+      Alert.alert(
+        "Permiso necesario",
+        "Se necesita permiso de cámara para sacar fotos.",
+      );
       return;
     }
-    const result = await ImagePicker.launchCameraAsync({
+    const result = await (
+      galeria
+        ? ImagePicker.launchImageLibraryAsync
+        : ImagePicker.launchCameraAsync
+    )({
+      mediaTypes: ["images"],
       allowsEditing: true,
       quality: 0.7,
     });
     if (!result.canceled && result.assets[0]) {
       const guardada = await guardarFotoEnAlmacenamiento(
         result.assets[0].uri,
-        `resena_${id}.jpg`
+        `resena_${id}.jpg`,
       );
       setFotoUri(guardada);
     }
@@ -135,9 +195,21 @@ export default function ComercioDetailScreen() {
         comentario: comentarioNuevo.trim(),
       };
       if (resenaEditandoId) {
-        await comerciosService.editarResena(resenaEditandoId, datos);
+        const anterior = resenas.find((r) => r.id === resenaEditandoId);
+        if (!anterior) throw new Error("No encontramos la reseña para editar.");
+        await resenasPendientesService.editar(anterior, datos, fotoUri);
       } else {
-        await comerciosService.crearResena(comercio!.id, datos);
+        const creada = await resenasPendientesService.crear(
+          comercio!.id,
+          datos,
+          fotoUri,
+        );
+        if (!creada.sincronizada)
+          Alert.alert(
+            "Reseña guardada en el teléfono",
+            creada.errorSincronizacion ??
+              "Se publicará automáticamente cuando haya conexión.",
+          );
       }
       setModalResenaVisible(false);
       setComentarioNuevo("");
@@ -155,7 +227,7 @@ export default function ComercioDetailScreen() {
     setResenaEditandoId(r.id);
     setEstrellasNueva(r.estrellas);
     setComentarioNuevo(r.comentario);
-    setFotoUri(null);
+    setFotoUri(r.fotoUrl ?? null);
     setModalResenaVisible(true);
   }
 
@@ -166,22 +238,38 @@ export default function ComercioDetailScreen() {
         text: "Borrar",
         style: "destructive",
         onPress: async () => {
-          await comerciosService.eliminarResena(resenaId);
-          await cargar();
+          try {
+            const resena = resenas.find((r) => r.id === resenaId);
+            if (resena) await resenasPendientesService.borrar(resena);
+            await cargar();
+          } catch (e) {
+            Alert.alert("No se pudo borrar", (e as Error).message);
+          }
         },
       },
     ]);
   }
 
   async function handleReportarResena(resenaId: string) {
+    if (!usuario) {
+      router.push("/login");
+      return;
+    }
     Alert.alert("Reportar", "¿Deseás reportar esta reseña como ofensiva?", [
       { text: "Cancelar", style: "cancel" },
       {
         text: "Reportar",
         onPress: async () => {
-          await comerciosService.reportarResena(resenaId);
-          Alert.alert("Gracias", "La reseña fue reportada y enviada a moderación.");
-          await cargar();
+          try {
+            await comerciosService.reportarResena(resenaId);
+            Alert.alert(
+              "Gracias",
+              "La reseña fue reportada y enviada a moderación.",
+            );
+            await cargar();
+          } catch (e) {
+            Alert.alert("No se pudo reportar", (e as Error).message);
+          }
         },
       },
     ]);
@@ -192,16 +280,30 @@ export default function ComercioDetailScreen() {
       router.push("/login");
       return;
     }
+    if (!esPromocionVigente(promo)) {
+      Alert.alert(
+        "Promoción no disponible",
+        "Esta promoción todavía no empezó o ya venció.",
+      );
+      return;
+    }
+    setUsoGenerado(null);
+    setGenerandoCodigo(true);
     setPromoSeleccionada(promo);
     try {
       const uso = await comerciosService.generarCodigoUso(promo.id);
       setUsoGenerado(uso);
       if (usuario.avisosActivos) {
-        programarRecordatorioPromoPorVencer(promo, comercio?.nombre ?? "el comercio");
+        await programarRecordatorioPromoPorVencer(
+          promo,
+          comercio?.nombre ?? "el comercio",
+        );
       }
     } catch (e) {
       setPromoSeleccionada(null);
       Alert.alert(promo.titulo, (e as Error).message);
+    } finally {
+      setGenerandoCodigo(false);
     }
   }
 
@@ -223,12 +325,57 @@ export default function ComercioDetailScreen() {
       />
 
       <ScrollView contentContainerStyle={styles.container}>
+        {cacheFecha !== null && (
+          <ThemedText style={{ padding: 16 }}>
+            Ficha guardada
+            {cacheFecha
+              ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+              : " en el teléfono"}
+            . Los datos pueden estar desactualizados.
+          </ThemedText>
+        )}
+        {aviso && <ThemedText style={{ padding: 16 }}>{aviso}</ThemedText>}
+        <Button
+          title="Guardar fotos y video sin conexión"
+          icon="download-outline"
+          loading={descargando}
+          disabled={!isOnline}
+          onPress={async () => {
+            setDescargando(true);
+            try {
+              setComercio(await guardarFichaSinConexion(comercio));
+              Alert.alert(
+                "Ficha guardada",
+                "Las fotos y el video ya están disponibles en este teléfono sin conexión.",
+              );
+            } catch (e) {
+              Alert.alert(
+                "No se pudo guardar la multimedia",
+                (e as Error).message,
+              );
+            } finally {
+              setDescargando(false);
+            }
+          }}
+        />
         {comercio.videoUrl ? (
           <ComercioVideo videoUrl={comercio.videoUrl} />
-        ) : comercio.imagenes && comercio.imagenes.length > 0 ? (
-          <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={false} style={styles.gallery}>
+        ) : null}
+        {comercio.imagenes && comercio.imagenes.length > 0 ? (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            style={styles.gallery}
+          >
             {comercio.imagenes.map((img, i) => (
-              <Image key={i} source={img} style={styles.image} contentFit="cover" transition={200} />
+              <Image
+                key={i}
+                source={img}
+                style={styles.image}
+                contentFit="cover"
+                transition={200}
+              />
             ))}
           </ScrollView>
         ) : null}
@@ -285,22 +432,36 @@ export default function ComercioDetailScreen() {
               size="small"
               onPress={() =>
                 Linking.openURL(
-                  `https://instagram.com/${comercio.instagram?.replace("@", "")}`
+                  `https://instagram.com/${comercio.instagram?.replace("@", "")}`,
                 )
               }
             />
           )}
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <View
+          style={[
+            styles.card,
+            { backgroundColor: colors.surface, borderColor: colors.border },
+          ]}
+        >
           <View style={styles.infoRow}>
             <Ionicons name="location-outline" size={20} color={colors.accent} />
             <ThemedText style={styles.flex}>{comercio.direccion}</ThemedText>
           </View>
 
           <View style={styles.infoRow}>
-            <Ionicons name="time-outline" size={20} color={estado.abierto ? "#2e7d32" : "#c62828"} />
-            <ThemedText style={{ fontWeight: "600", color: estado.abierto ? "#2e7d32" : "#c62828" }}>
+            <Ionicons
+              name="time-outline"
+              size={20}
+              color={estado.abierto ? "#2e7d32" : "#c62828"}
+            />
+            <ThemedText
+              style={{
+                fontWeight: "600",
+                color: estado.abierto ? "#2e7d32" : "#c62828",
+              }}
+            >
               {estado.texto}
             </ThemedText>
           </View>
@@ -308,7 +469,10 @@ export default function ComercioDetailScreen() {
           {horariosCompletos.length > 0 && (
             <View style={styles.horariosList}>
               {horariosCompletos.map((h, i) => (
-                <ThemedText key={i} style={[styles.small, { color: colors.muted }]}>
+                <ThemedText
+                  key={i}
+                  style={[styles.small, { color: colors.muted }]}
+                >
                   {h}
                 </ThemedText>
               ))}
@@ -322,7 +486,10 @@ export default function ComercioDetailScreen() {
               </ThemedText>
               <View style={styles.chipsWrap}>
                 {comercio.mediosDePago.map((medio, idx) => (
-                  <View key={idx} style={[styles.payChip, { borderColor: colors.border }]}>
+                  <View
+                    key={idx}
+                    style={[styles.payChip, { borderColor: colors.border }]}
+                  >
                     <ThemedText style={styles.small}>{medio}</ThemedText>
                   </View>
                 ))}
@@ -331,42 +498,58 @@ export default function ComercioDetailScreen() {
           )}
         </View>
 
-        {promos.length > 0 && (
+        {promos.some((p) => esPromocionVigente(p, ahora)) && (
           <View style={styles.section}>
             <ThemedText type="subtitle">Promociones vigentes</ThemedText>
-            {promos.map((promo) => (
-              <View
-                key={promo.id}
-                style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
-              >
-                <View style={styles.rowBetween}>
-                  <ThemedText type="defaultSemiBold" style={styles.flex}>
-                    {promo.titulo}
+            {promos
+              .filter((p) => esPromocionVigente(p, ahora))
+              .map((promo) => (
+                <View
+                  key={promo.id}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
+                >
+                  <View style={styles.rowBetween}>
+                    <ThemedText type="defaultSemiBold" style={styles.flex}>
+                      {promo.titulo}
+                    </ThemedText>
+                    {promo.descuento && (
+                      <View style={styles.promoBadge}>
+                        <ThemedText style={styles.promoBadgeText}>
+                          {promo.descuento}% OFF
+                        </ThemedText>
+                      </View>
+                    )}
+                  </View>
+                  <ThemedText style={{ color: colors.muted, fontSize: 13 }}>
+                    {promo.detalle}
                   </ThemedText>
-                  {promo.descuento && (
-                    <View style={styles.promoBadge}>
-                      <ThemedText style={styles.promoBadgeText}>
-                        {promo.descuento}% OFF
-                      </ThemedText>
-                    </View>
-                  )}
+                  <View style={styles.rowBetween}>
+                    <ThemedText style={styles.small}>
+                      Hasta {new Date(promo.hasta).toLocaleDateString("es-AR")}
+                    </ThemedText>
+                    {promo.soloApp ? (
+                      <Button
+                        title="Mostrar mi código"
+                        size="small"
+                        icon="qr-code"
+                        onPress={() => handleMostrarCodigo(promo)}
+                        loading={
+                          generandoCodigo && promoSeleccionada?.id === promo.id
+                        }
+                        disabled={generandoCodigo}
+                      />
+                    ) : (
+                      <ThemedText>Se aplica en el local</ThemedText>
+                    )}
+                  </View>
                 </View>
-                <ThemedText style={{ color: colors.muted, fontSize: 13 }}>
-                  {promo.detalle}
-                </ThemedText>
-                <View style={styles.rowBetween}>
-                  <ThemedText style={styles.small}>
-                    Hasta {new Date(promo.hasta).toLocaleDateString("es-AR")}
-                  </ThemedText>
-                  <Button
-                    title="Mostrar mi código"
-                    size="small"
-                    icon="qr-code"
-                    onPress={() => handleMostrarCodigo(promo)}
-                  />
-                </View>
-              </View>
-            ))}
+              ))}
           </View>
         )}
 
@@ -374,15 +557,32 @@ export default function ComercioDetailScreen() {
           <View style={styles.rowBetween}>
             <ThemedText type="subtitle">Reseñas</ThemedText>
             <Button
-              title="Dejar opinión"
+              title={
+                resenas.some((r) => r.usuarioId === usuario?.id)
+                  ? "Editar mi opinión"
+                  : "Dejar opinión"
+              }
               size="small"
               icon="star-outline"
               onPress={() => {
                 if (!usuario) router.push("/login");
+                else if (usuario.rol !== "vecino")
+                  Alert.alert(
+                    "Cuenta de vecino",
+                    "Las opiniones las publican los vecinos.",
+                  );
                 else {
+                  const propia = resenas.find(
+                    (r) => r.usuarioId === usuario.id,
+                  );
+                  if (propia) {
+                    handleEditarResena(propia);
+                    return;
+                  }
                   setResenaEditandoId(null);
                   setEstrellasNueva(5);
                   setComentarioNuevo("");
+                  setFotoUri(null);
                   setModalResenaVisible(true);
                 }
               }}
@@ -399,7 +599,13 @@ export default function ComercioDetailScreen() {
               return (
                 <View
                   key={r.id}
-                  style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}
+                  style={[
+                    styles.card,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                  ]}
                 >
                   <View style={styles.rowBetween}>
                     <ThemedText type="defaultSemiBold">
@@ -407,22 +613,45 @@ export default function ComercioDetailScreen() {
                     </ThemedText>
                     <View style={styles.ratingRow}>
                       <Ionicons name="star" size={14} color="#f5a623" />
-                      <ThemedText style={styles.small}>{r.estrellas}</ThemedText>
+                      <ThemedText style={styles.small}>
+                        {r.estrellas}
+                      </ThemedText>
                     </View>
                   </View>
 
                   <ThemedText>{r.comentario}</ThemedText>
+                  {!r.sincronizada && (
+                    <ThemedText style={{ color: colors.accent }}>
+                      Pendiente de publicación
+                      {r.errorSincronizacion
+                        ? `: ${r.errorSincronizacion}`
+                        : ". Se enviará al recuperar conexión."}
+                    </ThemedText>
+                  )}
 
                   {r.fotoUrl && (
-                    <Image source={r.fotoUrl} style={styles.resenaFoto} contentFit="cover" />
+                    <Image
+                      source={r.fotoUrl}
+                      style={styles.resenaFoto}
+                      contentFit="cover"
+                    />
                   )}
 
                   {r.respuesta && (
-                    <View style={[styles.respuestaBox, { backgroundColor: colors.background }]}>
-                      <ThemedText style={[styles.small, { fontWeight: "bold" }]}>
+                    <View
+                      style={[
+                        styles.respuestaBox,
+                        { backgroundColor: colors.background },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[styles.small, { fontWeight: "bold" }]}
+                      >
                         Respuesta del comercio:
                       </ThemedText>
-                      <ThemedText style={styles.small}>{r.respuesta}</ThemedText>
+                      <ThemedText style={styles.small}>
+                        {r.respuesta}
+                      </ThemedText>
                     </View>
                   )}
 
@@ -433,20 +662,35 @@ export default function ComercioDetailScreen() {
                     <View style={styles.resenaActions}>
                       {esPropia ? (
                         <>
-                          <Pressable onPress={() => handleEditarResena(r)} hitSlop={8}>
-                            <ThemedText style={[styles.small, { color: colors.accent }]}>
+                          <Pressable
+                            onPress={() => handleEditarResena(r)}
+                            hitSlop={8}
+                          >
+                            <ThemedText
+                              style={[styles.small, { color: colors.accent }]}
+                            >
                               Editar
                             </ThemedText>
                           </Pressable>
-                          <Pressable onPress={() => handleEliminarResena(r.id)} hitSlop={8}>
-                            <ThemedText style={[styles.small, { color: "#d32f2f" }]}>
+                          <Pressable
+                            onPress={() => handleEliminarResena(r.id)}
+                            hitSlop={8}
+                          >
+                            <ThemedText
+                              style={[styles.small, { color: "#d32f2f" }]}
+                            >
                               Borrar
                             </ThemedText>
                           </Pressable>
                         </>
                       ) : (
-                        <Pressable onPress={() => handleReportarResena(r.id)} hitSlop={8}>
-                          <ThemedText style={[styles.small, { color: colors.muted }]}>
+                        <Pressable
+                          onPress={() => handleReportarResena(r.id)}
+                          hitSlop={8}
+                        >
+                          <ThemedText
+                            style={[styles.small, { color: colors.muted }]}
+                          >
                             Reportar
                           </ThemedText>
                         </Pressable>
@@ -467,7 +711,15 @@ export default function ComercioDetailScreen() {
         onRequestClose={() => setModalResenaVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <ThemedText type="subtitle">
               {resenaEditandoId ? "Editá tu reseña" : "Escribí tu reseña"}
             </ThemedText>
@@ -485,12 +737,16 @@ export default function ComercioDetailScreen() {
 
             <TextInput
               value={comentarioNuevo}
+              maxLength={1000}
               onChangeText={setComentarioNuevo}
               placeholder="Contanos tu experiencia..."
               placeholderTextColor={colors.muted}
               multiline
               numberOfLines={4}
-              style={[styles.textArea, { color: colors.text, borderColor: colors.border }]}
+              style={[
+                styles.textArea,
+                { color: colors.text, borderColor: colors.border },
+              ]}
             />
 
             <Button
@@ -498,11 +754,33 @@ export default function ComercioDetailScreen() {
               variant="secondary"
               icon="camera"
               size="small"
-              onPress={tomarOSeleccionarFoto}
+              onPress={() =>
+                tomarOSeleccionarFoto().catch((e) =>
+                  Alert.alert("Foto", (e as Error).message),
+                )
+              }
             />
+            <Button
+              title="Elegir foto de la galería"
+              variant="secondary"
+              icon="image-outline"
+              onPress={() =>
+                tomarOSeleccionarFoto(true).catch((e) =>
+                  Alert.alert("Foto", (e as Error).message),
+                )
+              }
+            />
+            <ThemedText style={styles.small}>
+              La foto queda vinculada a tu reseña en este teléfono. La API
+              publica la puntuación y el comentario.
+            </ThemedText>
 
             {fotoUri && (
-              <Image source={fotoUri} style={styles.previewFoto} contentFit="cover" />
+              <Image
+                source={fotoUri}
+                style={styles.previewFoto}
+                contentFit="cover"
+              />
             )}
 
             <View style={styles.rowBetween}>
@@ -522,7 +800,10 @@ export default function ComercioDetailScreen() {
       </Modal>
 
       <Modal
-        visible={promoSeleccionada !== null}
+        visible={
+          promoSeleccionada !== null &&
+          esPromocionVigente(promoSeleccionada, ahora)
+        }
         animationType="fade"
         transparent
         onRequestClose={() => {
@@ -531,7 +812,15 @@ export default function ComercioDetailScreen() {
         }}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
+          <View
+            style={[
+              styles.modalCard,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.border,
+              },
+            ]}
+          >
             <ThemedText type="title" style={styles.center}>
               Cupón de Descuento
             </ThemedText>
@@ -539,10 +828,7 @@ export default function ComercioDetailScreen() {
               {promoSeleccionada?.titulo}
             </ThemedText>
             <View style={[styles.codeBox, { borderColor: colors.border }]}>
-              <Ionicons name="qr-code-outline" size={70} color={colors.accent} />
-              <ThemedText type="subtitle" style={{ color: colors.accent, letterSpacing: 2 }}>
-                {usoGenerado ? usoGenerado.codigo : "..."}
-              </ThemedText>
+              <CuponQR codigo={usoGenerado?.codigo} />
             </View>
             <Button
               title="Cerrar"

@@ -1,6 +1,6 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Image } from "expo-image";
-import { Link } from "expo-router";
+import Ionicons from "@react-native-vector-icons/ionicons";
+import { Image } from "@/src/components/imagen";
+import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
@@ -23,12 +23,17 @@ import {
 } from "@/src/lib/location";
 import { obtenerEstadoHorario } from "@/src/lib/horarios";
 import { useNetworkStatus } from "@/src/lib/network";
-import { comerciosService } from "@/src/services/comercios.service";
-import type { Comercio, Coordenadas, Promocion, Rubro } from "@/src/types";
+import { comerciosService } from "@/src/servicios/comercios.service";
+import type { Comercio, Coordenadas, Promocion, Rubro } from "@/src/tipos";
+import { useNow } from "@/src/hooks/use-now";
+import { esPromocionVigente } from "@/src/lib/promociones";
 
 export default function HomeScreen() {
   const { palette: colors } = useTheme();
   const { isOnline } = useNetworkStatus();
+  const ahora = useNow();
+  const [cacheFecha, setCacheFecha] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
 
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [rubros, setRubros] = useState<Rubro[]>([]);
@@ -37,21 +42,35 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
-  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(null);
+  const [rubroSeleccionado, setRubroSeleccionado] = useState<string | null>(
+    null,
+  );
   const [soloAbiertos, setSoloAbiertos] = useState(false);
-  const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(null);
+  const [ubicacionUsuario, setUbicacionUsuario] = useState<Coordenadas | null>(
+    null,
+  );
 
   const cargarDatos = useCallback(async () => {
+    setLoading(true);
     setError(null);
+    setAviso(null);
     try {
       const [resRubros, resComercios, resPromos] = await Promise.all([
         comerciosService.obtenerRubros(),
         comerciosService.obtenerComercios(),
-        comerciosService.obtenerPromociones(),
+        comerciosService
+          .obtenerPromociones({ estado: "vigentes" })
+          .catch(() => {
+            setAviso(
+              "Las promociones necesitan conexión. Podés consultar el directorio guardado.",
+            );
+            return { datos: [] as Promocion[] };
+          }),
       ]);
       setRubros(resRubros.datos);
       setComercios(resComercios.datos);
       setPromos(resPromos.datos);
+      setCacheFecha(resComercios.cache?.actualizadoEn ?? null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -59,12 +78,16 @@ export default function HomeScreen() {
     }
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      cargarDatos();
+    }, [cargarDatos]),
+  );
   useEffect(() => {
-    cargarDatos();
     pedirPermisoYUbicacion().then((coords) => {
       if (coords) setUbicacionUsuario(coords);
     });
-  }, [cargarDatos]);
+  }, []);
 
   if (loading) {
     return <StateView type="loading" message="Cargando comercios..." />;
@@ -82,18 +105,27 @@ export default function HomeScreen() {
     );
   }
 
-  const normalizado = query.trim().toLowerCase();
+  const normalizar = (texto: string) =>
+    texto
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+  const normalizado = normalizar(query.trim());
   let filtrados = comercios.filter((c) => {
     if (rubroSeleccionado && c.rubroId !== rubroSeleccionado) {
       return false;
     }
     if (normalizado) {
-      const coincideNombre = c.nombre.toLowerCase().includes(normalizado);
-      const coincideDesc = c.descripcion.toLowerCase().includes(normalizado);
+      const coincideNombre = normalizar(c.nombre).includes(normalizado);
+      const coincideDesc = normalizar(c.descripcion).includes(normalizado);
       if (!coincideNombre && !coincideDesc) return false;
     }
     if (soloAbiertos) {
-      const { abierto } = obtenerEstadoHorario(c.horarios, c.activo);
+      const { abierto } = obtenerEstadoHorario(
+        c.horarios,
+        c.activo,
+        new Date(ahora),
+      );
       if (!abierto) return false;
     }
     return true;
@@ -109,14 +141,19 @@ export default function HomeScreen() {
 
   return (
     <ThemedView style={styles.flex}>
-      {!isOnline && (
+      {(!isOnline || cacheFecha !== null) && (
         <View style={[styles.offlineBanner, { backgroundColor: "#FF9800" }]}>
           <Ionicons name="cloud-offline" size={16} color="#fff" />
           <ThemedText style={styles.offlineText}>
-            Sin conexión. Mostrando datos guardados en el teléfono.
+            Datos guardados
+            {cacheFecha
+              ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+              : " en el teléfono"}
+            . Pueden estar desactualizados.
           </ThemedText>
         </View>
       )}
+      {aviso && <ThemedText style={{ padding: 12 }}>{aviso}</ThemedText>}
 
       <View
         style={[
@@ -223,13 +260,19 @@ export default function HomeScreen() {
         contentContainerStyle={styles.list}
         renderItem={({ item }) => {
           const rubro = rubros.find((r) => r.id === item.rubroId);
-          const estado = obtenerEstadoHorario(item.horarios, item.activo);
+          const estado = obtenerEstadoHorario(
+            item.horarios,
+            item.activo,
+            new Date(ahora),
+          );
           const distancia = ubicacionUsuario
             ? formatearDistancia(
-                calcularDistanciaMetros(ubicacionUsuario, item.coordenadas)
+                calcularDistanciaMetros(ubicacionUsuario, item.coordenadas),
               )
             : null;
-          const promo = promos.find((p) => p.comercioId === item.id);
+          const promo = promos.find(
+            (p) => p.comercioId === item.id && esPromocionVigente(p, ahora),
+          );
 
           return (
             <Link
@@ -239,7 +282,10 @@ export default function HomeScreen() {
               <Pressable
                 style={[
                   styles.card,
-                  { backgroundColor: colors.surface, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                  },
                 ]}
               >
                 {item.imagenes && item.imagenes.length > 0 ? (
@@ -256,7 +302,11 @@ export default function HomeScreen() {
                       { backgroundColor: colors.border },
                     ]}
                   >
-                    <Ionicons name="storefront" size={40} color={colors.muted} />
+                    <Ionicons
+                      name="storefront"
+                      size={40}
+                      color={colors.muted}
+                    />
                   </View>
                 )}
 
@@ -266,7 +316,9 @@ export default function HomeScreen() {
                       {item.nombre}
                     </ThemedText>
                     {distancia && (
-                      <ThemedText style={[styles.distancia, { color: colors.accent }]}>
+                      <ThemedText
+                        style={[styles.distancia, { color: colors.accent }]}
+                      >
                         {distancia}
                       </ThemedText>
                     )}
