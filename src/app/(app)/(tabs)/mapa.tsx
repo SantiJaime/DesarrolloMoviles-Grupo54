@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { useRouter } from "expo-router";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import MapView, { Marker } from "react-native-maps";
@@ -78,6 +79,16 @@ export default function MapaScreen() {
     ? comercios.filter((c) => c.rubroId === rubroFiltro)
     : comercios;
 
+  if (!process.env.EXPO_PUBLIC_GOOGLE_MAPS_KEY) {
+    return (
+      <StateView
+        type="error"
+        title="Mapa no disponible"
+        message="Esta versión de la app se generó sin la clave de Google Maps."
+      />
+    );
+  }
+
   if (loading) {
     return <StateView type="loading" message="Cargando mapa..." />;
   }
@@ -100,7 +111,7 @@ export default function MapaScreen() {
         <ThemedText style={{ padding: 12 }}>
           Comercios guardados
           {cacheFecha
-            ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+            ? ` el ${formatearFechaHora(cacheFecha)}`
             : " en el teléfono"}
           . Pueden estar desactualizados; el mapa base necesita conexión.
         </ThemedText>

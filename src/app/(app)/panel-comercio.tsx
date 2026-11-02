@@ -1,5 +1,6 @@
 import * as ImagePicker from "expo-image-picker";
 import { Image } from "@/src/components/imagen";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import {
@@ -162,7 +163,11 @@ export default function PanelComercioScreen() {
     try {
       await accion();
     } catch (e) {
-      Alert.alert("No se pudo completar", (e as Error).message);
+      Alert.alert(
+        "No se pudo completar",
+        (e as Error).message ||
+          "Ocurrió un error inesperado. Intentá de nuevo.",
+      );
     } finally {
       setOcupado(false);
     }
@@ -553,8 +558,8 @@ export default function PanelComercioScreen() {
               </ThemedText>
               <ThemedText>{p.detalle}</ThemedText>
               <ThemedText>
-                Desde {new Date(p.desde).toLocaleString("es-AR")} hasta{" "}
-                {new Date(p.hasta).toLocaleString("es-AR")}
+                Desde {formatearFechaHora(p.desde)} hasta{" "}
+                {formatearFechaHora(p.hasta)}
               </ThemedText>
               {p.activa && (
                 <>

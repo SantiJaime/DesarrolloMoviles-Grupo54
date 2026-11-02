@@ -23,12 +23,15 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (response) => response,
   (error: AxiosError<Partial<ApiError>>) => {
-    const cuerpo = error.response?.data?.error;
-    if (cuerpo) {
-      error.message = cuerpo.mensaje;
+    const mensaje = error.response?.data?.error?.mensaje;
+    if (mensaje) {
+      error.message = mensaje;
     } else if (!error.response) {
       error.message =
         "No pudimos conectarnos con el servidor. Revisá tu conexión e intentá de nuevo.";
+    } else if (error.response.status === 413 || error.response.status >= 500) {
+      error.message =
+        "El servidor no pudo procesar la solicitud. Si estabas subiendo un archivo, probá con uno más liviano.";
     } else {
       error.message = "Ocurrió un error inesperado. Intentá de nuevo.";
     }

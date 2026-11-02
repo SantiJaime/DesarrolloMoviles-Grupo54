@@ -1,5 +1,6 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import { Image } from "@/src/components/imagen";
+import { formatearFechaHora } from "@/src/lib/fechas";
 import { Link, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -147,13 +148,24 @@ export default function HomeScreen() {
           <ThemedText style={styles.offlineText}>
             Datos guardados
             {cacheFecha
-              ? ` el ${new Date(cacheFecha).toLocaleString("es-AR")}`
+              ? ` el ${formatearFechaHora(cacheFecha)}`
               : " en el teléfono"}
             . Pueden estar desactualizados.
           </ThemedText>
         </View>
       )}
-      {aviso && <ThemedText style={{ padding: 12 }}>{aviso}</ThemedText>}
+      {aviso && (
+        <ThemedText
+          style={{
+            paddingHorizontal: 16,
+            paddingTop: 10,
+            fontSize: 13,
+            color: colors.muted,
+          }}
+        >
+          {aviso}
+        </ThemedText>
+      )}
 
       <View
         style={[

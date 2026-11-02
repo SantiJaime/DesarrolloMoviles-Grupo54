@@ -1,8 +1,9 @@
 import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ComponentProps } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, StyleSheet } from "react-native";
 
 import { ThemedText } from "@/src/components/themed-text";
+import { ThemedView } from "@/src/components/themed-view";
 import { Button } from "@/src/components/ui/button";
 import { useTheme } from "@/src/hooks/use-theme";
 
@@ -22,14 +23,14 @@ export function StateView(props: StateViewProps) {
 
   if (props.type === "loading") {
     return (
-      <View style={styles.container}>
+      <ThemedView style={styles.container}>
         <ActivityIndicator size="large" color={colors.accent} />
         {props.message ? (
           <ThemedText style={{ color: colors.muted }}>
             {props.message}
           </ThemedText>
         ) : null}
-      </View>
+      </ThemedView>
     );
   }
 
@@ -40,7 +41,7 @@ export function StateView(props: StateViewProps) {
   } as const;
 
   return (
-    <View style={styles.container}>
+    <ThemedView style={styles.container}>
       <Ionicons
         name={props.icon ?? defaultIcon[props.type]}
         size={56}
@@ -61,7 +62,7 @@ export function StateView(props: StateViewProps) {
           style={styles.action}
         />
       ) : null}
-    </View>
+    </ThemedView>
   );
 }
 
